@@ -1,17 +1,20 @@
-# kdoctor CI fast gate (Round-3 #9)
+# kdoctor CI fast gate (Round-3 #9 + #9.1 polish)
 #
 # Complements the existing `.github/workflows/mobiai-install-test.yml`
 # (slow MobiAI integration test). This file is the *fast* gate that
 # runs on every push and PR — catches formatting drift, vet violations,
 # race conditions, build breakage, and dependency drift in seconds.
 #
-# Triggers: push to main, PR targeting main.
+# Triggers: push to main, PR targeting main (paths-ignore excludes pure
+# doc-only changes — see Round-3 #9.1 polish).
 # Runtime: ~2-3 minutes on ubuntu-latest cold cache; <60s with cache.
 
-name: CI Fast Gate# Round-3 #9.1 polish: paths-ignore filter prevents the gate from running
+name: CI Fast Gate
+
+# Round-3 #9.1 polish: paths-ignore filter prevents the gate from running
 # on pure-docs pushes (HANDOVER.md, dashboard docs/*, etc.) saving ~2-3min
 # CI minutes per push. CI still runs on any .go / .mod / .sum / .yml change
-# (paths filter is `paths-ignore` so default = match all).
+# (paths-ignore = match-all minus excluded patterns).
 
 on:
   push:
@@ -26,9 +29,6 @@ on:
       - "**.md"
       - "docs/**"
       - "CHANGELOG.md"
-
-
-
 
 # Cancel any in-progress run for the same branch if a new commit lands.
 concurrency:
