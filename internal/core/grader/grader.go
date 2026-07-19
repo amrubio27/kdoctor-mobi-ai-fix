@@ -1,8 +1,9 @@
 // Package grader implementa el motor de Health Score.
 //
 // Fórmula V1:
-//   raw = 100 - errors*5 - warnings*2 - info*0.5
-//   score = clamp(raw, 0, 100)
+//
+//	raw = 100 - errors*5 - warnings*2 - info*0.5
+//	score = clamp(raw, 0, 100)
 //
 // Nota: la pérdida de precisión en info weight (0.5 truncado a int) es
 // aceptable para el PoC; se documenta en Tarea 1.7 del plan. Si necesitas

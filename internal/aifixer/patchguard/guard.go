@@ -9,16 +9,16 @@ import "fmt"
 //   - Raw strings           ("""…""") without escapes
 //   - Char literals          ('.')    with escape sequences
 //   - Template expressions   ${…}    (counts their inner braces/parens but
-//                                       exits back to the surrounding string
-//                                       mode when the expression closes)
+//     exits back to the surrounding string
+//     mode when the expression closes)
 //   - Line comments         //…
 //   - Block comments        /* … */
 //
 // Errors preserve the round-1 message format (consumed by tests and the
 // `fix --ai` CLI that displayed them to users):
 //
-//   "unbalanced braces: net count is N"
-//   "unbalanced parentheses: net count is N"
+//	"unbalanced braces: net count is N"
+//	"unbalanced parentheses: net count is N"
 //
 // Limitations (task #4 of round-2 polish):
 //

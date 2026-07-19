@@ -1,11 +1,12 @@
 // Package config carga y serializa kdoctor.config.yaml.
 //
 // Schema mínimo Fase 1:
-//   projectType: android|kmp|cmp
-//   paths: { kotlin: [...], compose: [...] }
-//   rules: { "compose-remember-missing": "error" | "off" | "warn" }
-//   score: { failBelow: 80 }
-//   aiFixer: { provider: auto|mobiai|claude|cursor|gemini, mode: suggest|interactive|auto }
+//
+//	projectType: android|kmp|cmp
+//	paths: { kotlin: [...], compose: [...] }
+//	rules: { "compose-remember-missing": "error" | "off" | "warn" }
+//	score: { failBelow: 80 }
+//	aiFixer: { provider: auto|mobiai|claude|cursor|gemini, mode: suggest|interactive|auto }
 package config
 
 import (

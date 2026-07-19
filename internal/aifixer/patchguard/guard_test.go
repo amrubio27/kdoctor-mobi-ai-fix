@@ -90,7 +90,7 @@ func TestValidateCharLiteral(t *testing.T) {
 	}
 }
 
-// TestValidateCharLiteralEscaped: char con escape sequence `'\\''`,
+// TestValidateCharLiteralEscaped: char con escape sequence `'\\”`,
 // `'\\n'`, etc. El lexer debe consumir el byte escapado atómicamente.
 func TestValidateCharLiteralEscaped(t *testing.T) {
 	code := `val x = '\''; val y = '\n'; val z = '\\'`
