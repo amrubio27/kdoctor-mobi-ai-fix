@@ -3,6 +3,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,9 +12,13 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/adkd/adkd/internal/core/baseline"
+	"github.com/adkd/adkd/internal/core/config"
 	"github.com/adkd/adkd/internal/core/detektrunner"
+	"github.com/adkd/adkd/internal/core/diff"
 	"github.com/adkd/adkd/internal/core/grader"
 	"github.com/adkd/adkd/internal/core/rulemap"
+	"github.com/adkd/adkd/internal/core/rules"
 	"github.com/adkd/adkd/internal/core/sarif"
 	"github.com/adkd/adkd/internal/core/types"
 	"github.com/adkd/adkd/internal/reporter/console"
@@ -35,6 +40,9 @@ type scanFlags struct {
 	projectDir       string
 	failBelow        int
 	outputPath       string
+	diffRef          string
+	baselinePath     string
+	mobiai           bool
 }
 
 func NewScanCmd() *cobra.Command {
@@ -52,7 +60,9 @@ Por defecto: rich console.
 --detekt-bin path   : ruta explícita al binario/cmd/jar de detekt (si no en PATH)
 --project-dir path  : directorio del proyecto a escanear (default: cwd)
 --fail-below N      : exit code !=0 si score < N
---out path          : escribir a fichero en lugar de stdout`,
+--out path          : escribir a fichero en lugar de stdout
+--diff ref          : filtrar por líneas modificadas/añadidas respecto al git ref
+--baseline path     : suprimir findings listados en el baseline.xml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runScan(cmd, f)
 		},
@@ -65,6 +75,9 @@ Por defecto: rich console.
 	cmd.Flags().StringVar(&f.projectDir, "project-dir", "", "project directory to scan (default: cwd)")
 	cmd.Flags().IntVar(&f.failBelow, "fail-below", 0, "non-zero exit code if health score is below this value")
 	cmd.Flags().StringVar(&f.outputPath, "out", "", "write report to file instead of stdout")
+	cmd.Flags().StringVar(&f.diffRef, "diff", "", "filter findings to only those added/modified compared to the git reference")
+	cmd.Flags().StringVar(&f.baselinePath, "baseline", "", "suppress findings listed in the specified baseline.xml")
+	cmd.Flags().BoolVar(&f.mobiai, "mobiai", false, "output findings as JSONL to .mobiai/graph/findings.jsonl")
 	return cmd
 }
 
@@ -83,7 +96,7 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	if err != nil {
 		return err
 	}
-	rules, err := rulemap.LoadRules(rulesPath)
+	ruleCatalog, err := rulemap.LoadRules(rulesPath)
 	if err != nil {
 		return fmt.Errorf("load rules: %w", err)
 	}
@@ -122,9 +135,69 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 		return fmt.Errorf("parse sarif: %w", err)
 	}
 
-	// 4. Mapear Detekt IDs → kdoctor.
-	idx := rulemap.BuildIndex(rules)
+	// 4. Correr detectores regex nativos en Go.
+	nativeFindings, err := rules.RunRegexDetectors(wd, ruleCatalog)
+	if err != nil {
+		return fmt.Errorf("run native rules: %w", err)
+	}
+	raw = append(raw, nativeFindings...)
+
+	// 5. Mapear Detekt IDs y IDs nativos → kdoctor.
+	idx := rulemap.BuildIndex(ruleCatalog)
 	mapped := idx.Map(raw)
+
+	// 5a. Aplicar overrides de kdoctor.config.yaml
+	configPath := filepath.Join(wd, "kdoctor.config.yaml")
+	cfg, err := config.Load(configPath)
+	if err == nil {
+		mapped = rulemap.ApplyOverrides(mapped, cfg.Excludes, cfg.Rules)
+	}
+
+	// 5b. Baseline suppression
+	if f.baselinePath != "" {
+		baselineIDs, err := baseline.LoadBaseline(f.baselinePath)
+		if err != nil {
+			return fmt.Errorf("load baseline: %w", err)
+		}
+		var filtered []types.Finding
+		for _, finding := range mapped {
+			// Tarea #5 del round-2: pass wd so pathutil.Join can absolutize
+			// baseline's relative paths against the scanned project. The
+			// round-1 wrapper (projectRoot="") is kept for backward compat.
+			if !baseline.IsSuppressedWithRoot(finding, baselineIDs, wd) {
+				filtered = append(filtered, finding)
+			}
+		}
+		mapped = filtered
+	}
+
+	// 5c. Diff filtering
+	if f.diffRef != "" {
+		baseRef, err := diff.GetMergeBase(f.diffRef, wd)
+		if err != nil {
+			return fmt.Errorf("diff merge-base: %w", err)
+		}
+		diffMap, err := diff.GetLineDiff(baseRef, wd)
+		if err != nil {
+			return fmt.Errorf("diff line ranges: %w", err)
+		}
+		// Tarea #5 del round-2: detect the actual git root so diff paths
+		// (which `git diff` emits relative to git root, not to wd) line up
+		// with the normalized finding.File paths. If wd is not inside a git
+		// repo (e.g. detached tarball review) GetGitRoot errors out, in
+		// which case we fall back to wd for backward compatibility.
+		projectRootForFilter := wd
+		if gitRoot, gitErr := diff.GetGitRoot(wd); gitErr == nil {
+			projectRootForFilter = gitRoot
+		} else {
+			fmt.Fprintf(cmd.ErrOrStderr(),
+				"warning: could not detect git root (--project-dir=%s): %v\n"+
+					"  falling back to --project-dir for diff-path normalization; "+
+					"results on monorepo submodules may be imprecise.\n",
+				wd, gitErr)
+		}
+		mapped = diff.FilterFindingsByDiffWithRoot(mapped, diffMap, projectRootForFilter)
+	}
 
 	// 5. Calcular Health Score.
 	score, sum := grader.Score(mapped)
@@ -156,6 +229,26 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	default:
 		hasTty := isTerminal(cmd.OutOrStdout())
 		console.RenderReport(report, target, hasTty)
+	}
+
+	// 7b. Emitir a MobiAI graph si se solicitó.
+	if f.mobiai {
+		mobiaiDir := filepath.Join(wd, ".mobiai", "graph")
+		if err := os.MkdirAll(mobiaiDir, 0755); err != nil {
+			return fmt.Errorf("create mobiai dir: %w", err)
+		}
+		mobiaiFile := filepath.Join(mobiaiDir, "findings.jsonl")
+		fOut, err := os.Create(mobiaiFile)
+		if err != nil {
+			return fmt.Errorf("create mobiai output file: %w", err)
+		}
+		defer func() { _ = fOut.Close() }()
+		enc := json.NewEncoder(fOut)
+		for _, finding := range report.Findings {
+			if err := enc.Encode(finding); err != nil {
+				return fmt.Errorf("encode finding for mobiai: %w", err)
+			}
+		}
 	}
 
 	// 8. Quality gate.
