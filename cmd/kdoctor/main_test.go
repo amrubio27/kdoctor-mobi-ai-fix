@@ -29,8 +29,8 @@ func TestRootHelp(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("execute --help: %v", err)
 	}
-	if !strings.Contains(buf.String(), "adkd") {
-		t.Fatalf("expected adkd in help output, got:\n%s", buf.String())
+	if !strings.Contains(buf.String(), "kdoctor") {
+		t.Fatalf("expected kdoctor in help output, got:\n%s", buf.String())
 	}
 	if !strings.Contains(buf.String(), "scan") {
 		t.Fatalf("expected scan subcommand advertised in help, got:\n%s", buf.String())

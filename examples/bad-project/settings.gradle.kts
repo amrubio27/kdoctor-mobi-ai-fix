@@ -1,1 +1,1 @@
-rootProject.name = "adkd-example-bad"
+rootProject.name = "kdoctor-example-bad"

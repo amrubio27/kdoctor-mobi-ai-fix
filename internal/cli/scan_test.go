@@ -31,7 +31,7 @@ func TestScanCmdResolvesRulesPathErrorIfMissing(t *testing.T) {
 	if err := chdir(dir); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("ADKD_RULES_DIR", "")
+	t.Setenv("KDOCTOR_RULES_DIR", "")
 	path, err := resolveRulesPath()
 	if err == nil {
 		t.Fatalf("expected error, got path %q", path)

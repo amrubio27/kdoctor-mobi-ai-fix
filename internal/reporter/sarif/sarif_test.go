@@ -33,8 +33,8 @@ func TestWriteProducesValidSARIF(t *testing.T) {
 	if !strings.Contains(out, `"version": "2.1.0"`) {
 		t.Fatalf("missing SARIF version 2.1.0:\n%s", out)
 	}
-	if !strings.Contains(out, `"name": "adkd"`) {
-		t.Fatalf("missing tool name adkd")
+	if !strings.Contains(out, `"name": "kdoctor"`) {
+		t.Fatalf("missing tool name kdoctor")
 	}
 	if !strings.Contains(out, "compose-remember-missing") {
 		t.Fatalf("missing finding id compose-remember-missing")

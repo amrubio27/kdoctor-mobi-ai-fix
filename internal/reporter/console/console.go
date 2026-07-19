@@ -1,4 +1,4 @@
-// Package console renderiza el reporte adkd con colores ANSI en la terminal.
+// Package console renderiza el reporte kdoctor con colores ANSI en la terminal.
 //
 // Detecta isatty para no contaminar pipes; en pipe mode, sin colores.
 // Fase 2 podemos cambiar a charmbracelet/lipgloss para un TUI más rico;

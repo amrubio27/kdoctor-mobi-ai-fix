@@ -1,4 +1,4 @@
-// adkd doctor: Diagnóstico del propio adkd y del entorno.
+// kdoctor doctor: Diagnóstico del propio kdoctor y del entorno.
 package cli
 
 import (
@@ -12,10 +12,10 @@ import (
 func NewDoctorCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
-		Short: "Diagnose adkd environment: Go, Detekt, Gradle, MobiAI, LLM providers",
+		Short: "Diagnose kdoctor environment: Go, Detekt, Gradle, MobiAI, LLM providers",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := cmd.OutOrStdout()
-			fmt.Fprintln(out, "adkd doctor")
+			fmt.Fprintln(out, "kdoctor doctor")
 			fmt.Fprintln(out, "===========")
 			fmt.Fprintf(out, "  Go version runtime: %s\n", runtime.Version())
 			checks := []struct{ name string; bin string }{

@@ -1,8 +1,8 @@
-// evalprojects itera examples/scoring-fixtures/*.json, corre `adkd scan --json`
+// evalprojects itera examples/scoring-fixtures/*.json, corre `kdoctor scan --json`
 // en cada projectPath asociado y valida que el HealthScore cae dentro del
 // rango esperado.
 //
-// Uso: go run ./scripts/evalprojects <path-a-adkd-binary>
+// Uso: go run ./scripts/evalprojects <path-a-kdoctor-binary>
 // Exit code 0 si todas las fixtures pasan; 1 en caso contrario.
 package main
 
@@ -35,10 +35,10 @@ type report struct {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: evalprojects <path-a-adkd-binary>")
+		fmt.Fprintln(os.Stderr, "uso: evalprojects <path-a-kdoctor-binary>")
 		os.Exit(2)
 	}
-	adkdBin := os.Args[1]
+	kdoctorBin := os.Args[1]
 
 	fixturesGlob := filepath.Join("examples", "scoring-fixtures", "*.json")
 	files, err := filepath.Glob(fixturesGlob)
@@ -66,7 +66,7 @@ func main() {
 				f, fix.ProjectPath)
 			continue
 		}
-		if err := evaluate(fix, adkdBin); err != nil {
+		if err := evaluate(fix, kdoctorBin); err != nil {
 			fmt.Fprintln(os.Stderr, "\u274c", err)
 			fails++
 			continue
@@ -79,12 +79,12 @@ func main() {
 	}
 }
 
-func evaluate(fixture Fixture, adkdBinary string) error {
-	cmd := exec.Command(adkdBinary, "scan", "--json", "--type=android")
+func evaluate(fixture Fixture, kdoctorBinary string) error {
+	cmd := exec.Command(kdoctorBinary, "scan", "--json", "--type=android")
 	cmd.Dir = fixture.ProjectPath
 	out, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("adkd scan en %s: %w", fixture.ProjectPath, err)
+		return fmt.Errorf("kdoctor scan en %s: %w", fixture.ProjectPath, err)
 	}
 	var r report
 	if err := json.Unmarshal(out, &r); err != nil {

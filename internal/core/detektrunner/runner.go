@@ -87,7 +87,7 @@ func runGradlew(ctx context.Context, opts Options) (string, error) {
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("./gradlew detekt: %w", err)
 	}
-	// SARIF Gradle plugin escribe típicamente a build/reports/detekt/adkd.sarif.
+	// SARIF Gradle plugin escribe típicamente a build/reports/detekt/kdoctor.sarif.
 	// En multi-modulo (`:app`, `:core`, ...) puede aparecer en
 	// <ProjectDir>/<module>/build/... Por eso hacemos find recursivo.
 	if produced := findProducedSARIF(opts.ProjectDir); produced != "" {

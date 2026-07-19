@@ -39,12 +39,12 @@ func TestFindProducedSARIFRecursive(t *testing.T) {
 	if err := mkdirAll(multi); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeFileString(filepath.Join(multi, "adkd.sarif"), `{"version":"2.1.0","runs":[]}`); err != nil {
+	if err := writeFileString(filepath.Join(multi, "kdoctor.sarif"), `{"version":"2.1.0","runs":[]}`); err != nil {
 		t.Fatal(err)
 	}
 
 	got := findProducedSARIF(tmp)
-	want := filepath.Join(multi, "adkd.sarif")
+	want := filepath.Join(multi, "kdoctor.sarif")
 	if got != want {
 		t.Fatalf("expected %q, got %q", want, got)
 	}

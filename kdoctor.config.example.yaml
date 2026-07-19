@@ -1,4 +1,4 @@
-# adkd config — generado por `adkd init`. Editar libremente.
+# kdoctor config — generado por `kdoctor init`. Editar libremente.
 
 # Tipo de proyecto. Usado para filtrar reglas contextuales (KMP vs CMP).
 projectType: android

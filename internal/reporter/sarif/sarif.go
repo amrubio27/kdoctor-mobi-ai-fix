@@ -1,4 +1,4 @@
-// Package sarif provides a SARIF 2.1.0 writer for adkd reports.
+// Package sarif provides a SARIF 2.1.0 writer for kdoctor reports.
 //
 // Es el inverso del parser de internal/core/sarif: dado un types.Report,
 // emite un documento SARIF apto para GitHub Code Scanning, Azure DevOps,
@@ -99,7 +99,7 @@ func buildRun(r types.Report) run {
 	rules := make([]ruleDecl, 0, len(ordered))
 	for _, id := range ordered {
 		rd := ruleDecl{ID: id, Name: id}
-		rd.ShortDescription.Text = "adkd: " + id
+		rd.ShortDescription.Text = "kdoctor: " + id
 		rules = append(rules, rd)
 	}
 
@@ -122,7 +122,7 @@ func buildRun(r types.Report) run {
 	}
 	return run{
 		Tool: tool{Driver: driver{
-			Name:           "adkd",
+			Name:           "kdoctor",
 			InformationURI: "https://github.com/adkd/adkd",
 			Rules:          rules,
 		}},

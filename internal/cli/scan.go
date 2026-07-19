@@ -1,4 +1,4 @@
-// adkd scan: comando principal. Escanea el proyecto y calcula Health Score.
+// kdoctor scan: comando principal. Escanea el proyecto y calcula Health Score.
 package cli
 
 import (
@@ -39,8 +39,8 @@ func NewScanCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scan",
 		Short: "Scan the project and compute Health Score",
-		Long: `adkd scan corre el análisis estático (Detekt SARIF), lo mapa a las
-reglas de adkd, calcula el Health Score 0-100 y emite el reporte.
+		Long: `kdoctor scan corre el análisis estático (Detekt SARIF), lo mapa a las
+reglas de kdoctor, calcula el Health Score 0-100 y emite el reporte.
 
 Por defecto: rich console.
 --json     : JSON schema v3 (para CI / MobiAI Graph)
@@ -79,7 +79,7 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 
 	// 2. Detectar modo y correr Detekt.
 	mode := detektrunner.Detect(wd, f.preferStandalone)
-	sarifPath := filepath.Join(os.TempDir(), "adkd-detekt.sarif")
+	sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt.sarif")
 	out := cmd.OutOrStdout()
 	if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
 		ProjectDir:    wd,
@@ -101,7 +101,7 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 		return fmt.Errorf("parse sarif: %w", err)
 	}
 
-	// 4. Mapear Detekt IDs → adkd.
+	// 4. Mapear Detekt IDs → kdoctor.
 	idx := rulemap.BuildIndex(rules)
 	mapped := idx.Map(raw)
 

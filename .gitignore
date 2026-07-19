@@ -1,6 +1,6 @@
 # Binarios
-/adkd
-/adkd.exe
+/kdoctor
+/kdoctor.exe
 /dist/
 *.exe
 
@@ -15,7 +15,7 @@
 /.worktrees/
 
 # Detekt init-script y Gradle build (se regeneran)
-/adkd-detekt.init.gradle.kts
+/kdoctor-detekt.init.gradle.kts
 /build/
 /.gradle/
 

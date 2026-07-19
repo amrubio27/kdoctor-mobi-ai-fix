@@ -1,4 +1,4 @@
-// Package rulemap carga el catálogo de reglas y mapea IDs Detekt a IDs adkd.
+// Package rulemap carga el catálogo de reglas y mapea IDs Detekt a IDs kdoctor.
 //
 // single source of truth = rules/metadata.json (ver Tarea 1.3).
 // Este paquete NO debe hardcodear reglas. Siempre lee del JSON.

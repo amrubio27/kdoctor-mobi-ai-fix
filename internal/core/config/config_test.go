@@ -20,7 +20,7 @@ func TestDefaultsAreSensible(t *testing.T) {
 }
 
 func TestLoadFromMissingFileReturnsDefault(t *testing.T) {
-	c, err := Load(filepath.Join(os.TempDir(), "no-such-adkd-config.yaml"))
+	c, err := Load(filepath.Join(os.TempDir(), "no-such-kdoctor-config.yaml"))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestLoadFromMissingFileReturnsDefault(t *testing.T) {
 
 func TestLoadFromYAML(t *testing.T) {
 	dir := t.TempDir()
-	p := filepath.Join(dir, "adkd.config.yaml")
+	p := filepath.Join(dir, "kdoctor.config.yaml")
 	if err := os.WriteFile(p, []byte(`
 projectType: kmp
 paths:

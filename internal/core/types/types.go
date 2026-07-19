@@ -1,10 +1,10 @@
-// Package types define el contrato canónico de datos de adkd.
+// Package types define el contrato canónico de datos de kdoctor.
 //
 // SchemaVersion 3 para alinear con react-doctor y tools downstream.
 //
 // IMPORTANTE (Phase 2-5): Los tipos BaselineFinding, DiffEngine, PromptContext,
 // FixMode y MobiaiAnnotation son contrato adelantado del plan
-// (docs/superpowers/plans/2026-07-19-adkd-implementation-plan.md).
+// (docs/superpowers/plans/2026-07-19-kdoctor-implementation-plan.md).
 // No eliminar sin reemplazarlos por las implementaciones de Fase 2-5:
 //   - BaselineFinding: Tarea 2.3 (suppression via baseline.xml).
 //   - DiffEngine: Tarea 2.2 (--diff <ref> con git).

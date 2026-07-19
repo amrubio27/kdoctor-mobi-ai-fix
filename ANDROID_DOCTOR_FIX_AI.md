@@ -5,11 +5,11 @@
 **TL;DR** — Escaneas tu código, te da un **Health Score 0-100**, encuentra antipatrones en Compose, coroutines, lifecycle, accesibilidad, arquitectura… y un agente IA (Claude Code / Cursor / Gemini / Copilot) **lo arregla automáticamente** desde tu terminal, dejando un `git diff` listo para revisar.
 
 ```
-$ adkd scan
+$ kdoctor scan
 ⚠ Health Score: 47/100
-$ adkd fix --ai
+$ kdoctor fix --ai
 ✓ 14 issues fixed in 7 files
-$ adkd scan
+$ kdoctor scan
 ✅ Health Score: 92/100
 ```
 
@@ -126,11 +126,11 @@ Binario standalone vía script:
 curl -fsSL https://mobiai.dev/install.sh | sh
 ```
 
-**Adecuado para que `adkd` (android doctor) sea un binario standalone y se enchufe como skill.**
+**Adecuado para que `kdoctor` (android doctor) sea un binario standalone y se enchufe como skill.**
 
 ### 3.3 Qué tiene hoy y qué le falta
 
-| Función | MobiAI hoy | `adkd` aporta |
+| Función | MobiAI hoy | `kdoctor` aporta |
 |---|---|---|
 | Diagnóstico de entorno (IA hosts, skills, perms) | ✅ `mobiai doctor` | — |
 | **Análisis estático del código fuente** | ⚠️ Solo índice semántico (`Graph`) | ✅ Motor de reglas AST profundo |
@@ -138,13 +138,13 @@ curl -fsSL https://mobiai.dev/install.sh | sh
 | **60+ reglas de calidad (perf, a11y, antipatrones)** | ❌ | ✅ |
 | **Dead code detection** | ❌ | ✅ |
 | Reparto de findings a LLM para fix | ✅ (es su core) | ✅ (como deliverable) |
-| Skills instalables | ✅ tiene `install` | ✅ adkd se instala como skill |
+| Skills instalables | ✅ tiene `install` | ✅ kdoctor se instala como skill |
 
 **MobiAI ya tiene la *infraestructura de entrega*** (instalar skills, invocar IA para arreglar), pero **no tiene un motor de reglas estáticas** comparable a las 60 reglas de react-doctor.
 
 **Juntando ambos** → la pareja perfecta:
 
-- `adkd` = el **detective** (escanea, encuentra, reporta con score).
+- `kdoctor` = el **detective** (escanea, encuentra, reporta con score).
 - MobiAI skills + CLI = el **mecánico** (lee el reporte, llama al LLM adecuado, aplica fixes, revisa).
 
 ---
@@ -172,22 +172,22 @@ AST → sub-analyzers → rule engine → score + findings →
 
 ### 4.4 Comandos principales del PoC
 
-Todas vivien bajo un binario `adkd` (android doctor). Pensado para ser `npx`, `brew`, o standalone.
+Todas vivien bajo un binario `kdoctor` (android doctor). Pensado para ser `npx`, `brew`, o standalone.
 
 | Comando | Qué hace |
 |---|---|
-| `adkd scan` | Escanea todo el repo, emite Health Score + findings list |
-| `adkd scan --json` | Igual pero en JSON para CI |
-| `adkd scan --sarif` | SARIF 2.1 para GitHub Code Scanning |
-| `adkd scan --rule <id>` | Solo una regla (debug) |
-| `adkd fix --ai` | Lanza el fixer IA con el último scan |
-| `adkd fix --ai --dry-run` | Solo muestra el diff propuesto, no toca nada |
-| `adkd fix --ai --interactive` | Pregunta antes de cada fix |
-| `adkd explain <finding-id>` | Por qué importa esa regla, ejemplos, links |
-| `adkd rules` | Lista todas las reglas disponibles y su status |
-| `adkd init` | Crea `adkd.config.ts` con defaults sensatos |
-| `adkd hook install` | Instala un pre-commit / pre-push hook |
-| `adkd doctor` | Diagnóstico del propio `adkd` (env, versiones, IA hosts) |
+| `kdoctor scan` | Escanea todo el repo, emite Health Score + findings list |
+| `kdoctor scan --json` | Igual pero en JSON para CI |
+| `kdoctor scan --sarif` | SARIF 2.1 para GitHub Code Scanning |
+| `kdoctor scan --rule <id>` | Solo una regla (debug) |
+| `kdoctor fix --ai` | Lanza el fixer IA con el último scan |
+| `kdoctor fix --ai --dry-run` | Solo muestra el diff propuesto, no toca nada |
+| `kdoctor fix --ai --interactive` | Pregunta antes de cada fix |
+| `kdoctor explain <finding-id>` | Por qué importa esa regla, ejemplos, links |
+| `kdoctor rules` | Lista todas las reglas disponibles y su status |
+| `kdoctor init` | Crea `kdoctor.config.ts` con defaults sensatos |
+| `kdoctor hook install` | Instala un pre-commit / pre-push hook |
+| `kdoctor doctor` | Diagnóstico del propio `kdoctor` (env, versiones, IA hosts) |
 
 ---
 
@@ -319,7 +319,7 @@ Total: **12 + 8 + 6 + 5 + 10 + 5 + 5 + 5 + 4 + 4 = 64 reglas**. (Más que las 60
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                          adkd CLI                            │
+│                          kdoctor CLI                            │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
 │  │ Detekt   │  │Android   │  │ KtLint   │  │ KSP/Custom│     │
@@ -364,7 +364,7 @@ Total: **12 + 8 + 6 + 5 + 10 + 5 + 5 + 5 + 4 + 4 = 64 reglas**. (Más que las 60
 | **Analyzers externos** | Detekt (XML/JSON output), Android Lint (XML), KtLint (JSON) | Reusar en vez de reinventar |
 | **Custom rules (KSP-friendly)** | Kotlin Symbol Processing API | Para escribir reglas con type info |
 | **Linter UI (rich console)** | [`@clack/prompts`](https://github.com/natemoo-re/clack) + [`chalk`](https://github.com/chalk/chalk) | Terminales bonitas |
-| **TUI interactiva** | [`ink`](https://github.com/vadimdemedes/ink) (React para terminal) | Para `adkd doctor` interactivo |
+| **TUI interactiva** | [`ink`](https://github.com/vadimdemedes/ink) (React para terminal) | Para `kdoctor doctor` interactivo |
 | **AI Bridge** | Spawn de `claude`, `cursor-agent`, `gemini` CLI + prompt file | Agnóstico al LLM |
 | **Reporte HTML** | Plantilla Vite + static export | Sin servidor, GitHub Pages friendly |
 | **Testing del propio CLI** | Vitest + fixtures de proyectos Android reales | Cobertura E2E |
@@ -390,7 +390,7 @@ android-kmp-doctor-ai-fix/
 │   │   └── html/            # Static dashboard
 │   └── ai-fixer/            # Bridge con LLMs
 ├── apps/
-│   └── cli/                 # Binario `adkd`
+│   └── cli/                 # Binario `kdoctor`
 ├── examples/
 │   ├── bad-project/         # Proyecto Android deliberadamente roto
 │   └── good-project/        # Mismo proyecto arreglado por la IA
@@ -399,10 +399,10 @@ android-kmp-doctor-ai-fix/
     └── rules/               # Spec de cada regla
 ```
 
-### 6.4 Configuración del usuario — `adkd.config.ts`
+### 6.4 Configuración del usuario — `kdoctor.config.ts`
 
 ```ts
-import { defineConfig } from 'adkd'
+import { defineConfig } from 'kdoctor'
 
 export default defineConfig({
   projectType: 'android', // 'kmp' | 'cmp'
@@ -437,33 +437,33 @@ export default defineConfig({
 Este es el "wow moment" del PoC. El flujo exacto que verás en la demo de la landing:
 
 ```
-1. adkd scan
+1. kdoctor scan
    ↓
 2. Encuentra 18 issues repartidos en 7 archivos
    ↓
 3. Reporta score 47/100 con severity breakdown
    ↓
-4. adkd fix --ai
+4. kdoctor fix --ai
    ↓
-5. adkd genera un prompt estructurado con los findings
+5. kdoctor genera un prompt estructurado con los findings
    ↓
-6. adkd lanza el provider IA elegido:
+6. kdoctor lanza el provider IA elegido:
    - MobIAI skill: invoca el agente configurado
    - Claude Code: lo abre con el prompt cargado
    - Cursor: detecta contexto y aplica
    ↓
 7. La IA lee cada finding, propone fix, lo aplica en el código
    ↓
-8. adkd recibe los nuevos archivos, calcula diff
+8. kdoctor recibe los nuevos archivos, calcula diff
    ↓
-9. adkd scan (segunda vuelta)
+9. kdoctor scan (segunda vuelta)
    ↓
 10. Score 92/100
    ↓
 11. git diff con los fixes, humano revisa y commitea
 ```
 
-### 7.1 El prompt que `adkd` le pasa a la IA
+### 7.1 El prompt que `kdoctor` le pasa a la IA
 
 ```text
 Eres un senior Android/Kotlin/Compose engineer.
@@ -493,11 +493,11 @@ INSTRUCCIONES:
 4. Devuelve un resumen final con los archivos tocados y por qué.
 ```
 
-### 7.2 Por qué dejamos que la IA modifique y no `adkd` directamente
+### 7.2 Por qué dejamos que la IA modifique y no `kdoctor` directamente
 
 - Las **reglas difíciles** (a11y, architecture, naming) requieren **juicio**, no patrón.
-- La IA ya sabe Kotlin/Compose. `adkd` no necesita re-implementar el conocimiento.
-- Si la IA falla, `adkd` puede re-lanzar con retries. Si `adkd` fallara, tendría que re-ejecutar todo el pipeline.
+- La IA ya sabe Kotlin/Compose. `kdoctor` no necesita re-implementar el conocimiento.
+- Si la IA falla, `kdoctor` puede re-lanzar con retries. Si `kdoctor` fallara, tendría que re-ejecutar todo el pipeline.
 - **Cero acoplamiento**: si mañana sale un LLM nuevo, solo cambia el bridge.
 
 ---
@@ -536,7 +536,7 @@ Con cap mínimo en 0 y máximo en 100.
 - Es **forward-looking**: detecta deuda técnica antes de que rompa.
 - Es **comparable entre proyectos**: dos proyectos se pueden rankear.
 - Es **gamificable**: subir de 47 a 92 en un commit da feedback inmediato.
-- Es **bloqueable en CI**: `adkd scan --fail-below 80` es un quality gate.
+- Es **bloqueable en CI**: `kdoctor scan --fail-below 80` es un quality gate.
 
 ---
 
@@ -546,11 +546,11 @@ Tres modos, de menos a más invasivo:
 
 ### 9.1 `suggest` (default seguro)
 
-`adkd fix --ai` → la IA **solo sugiere**. Genera un `fixes.md` con diffs propuestos + explicación. **No toca nada.**
+`kdoctor fix --ai` → la IA **solo sugiere**. Genera un `fixes.md` con diffs propuestos + explicación. **No toca nada.**
 
 ### 9.2 `apply --interactive`
 
-`adkd fix --ai --interactive` → por cada fix:
+`kdoctor fix --ai --interactive` → por cada fix:
 
 ```
 [FIX 1/12] compose/remember-missing in CartViewModel.kt:42
@@ -561,11 +561,11 @@ Si el dev dice `edit`, puede ajustar antes de aplicar.
 
 ### 9.3 `apply --auto` (tipo "Arréglalo todo")
 
-`adkd fix --ai --apply` → la IA aplica todo, genera `git diff` y se detiene. El dev revisa el diff y commitea o descarta.
+`kdoctor fix --ai --apply` → la IA aplica todo, genera `git diff` y se detiene. El dev revisa el diff y commitea o descarta.
 
 ### 9.4 Modo bonus: `pr`
 
-`adkd fix --ai --pr` → crea branch `adkd/fix-<timestamp>`, aplica, abre PR en remoto con la lista de cambios como descripción.
+`kdoctor fix --ai --pr` → crea branch `kdoctor/fix-<timestamp>`, aplica, abre PR en remoto con la lista de cambios como descripción.
 
 ---
 
@@ -575,21 +575,21 @@ Si el dev dice `edit`, puede ajustar antes de aplicar.
 
 **Nivel 1: skill instalable**
 
-`adkd` se distribuye como una MobiAI-skill instalable vía:
+`kdoctor` se distribuye como una MobiAI-skill instalable vía:
 
 ```bash
-mobiai skills install adkd
+mobiai skills install kdoctor
 ```
 
 Esta instalación:
 
-1. Descarga el binario `adkd`.
-2. Registra el comando `mobiai doctor --code` como wrapper que invoca `adkd scan`.
+1. Descarga el binario `kdoctor`.
+2. Registra el comando `mobiai doctor --code` como wrapper que invoca `kdoctor scan`.
 3. Añade prompts pre-armados para que el agente MobiAI ya sepa cómo interpretar el output.
 
 **Nivel 2: provider de findings para MobiAI**
 
-MobiAI tiene `Graph` (índice semántico de archivos). `adkd` le pasa a `Graph` los findings como anotaciones, para que cuando un agente MobiAI trabaje sobre un archivo, **ya vea los problemas pendientes** en su contexto.
+MobiAI tiene `Graph` (índice semántico de archivos). `kdoctor` le pasa a `Graph` los findings como anotaciones, para que cuando un agente MobiAI trabaje sobre un archivo, **ya vea los problemas pendientes** en su contexto.
 
 **Nivel 3: comando `mobiai doctor --code`**
 
@@ -599,11 +599,11 @@ MobiAI tiene `Graph` (índice semántico de archivos). `adkd` le pasa a `Graph` 
 mobiai doctor --code
 ```
 
-Corre `adkd scan`, muestra score, y si MobiAI tiene IA configurada, ofrece `Run fixes? [Y/n]`. Si dice que sí, invoca el `ai-fixer` de adkd con el provider MobiAI.
+Corre `kdoctor scan`, muestra score, y si MobiAI tiene IA configurada, ofrece `Run fixes? [Y/n]`. Si dice que sí, invoca el `ai-fixer` de kdoctor con el provider MobiAI.
 
 ### 10.2 Beneficio mutuo
 
-| Para MobiAI | Para adkd |
+| Para MobiAI | Para kdoctor |
 |---|---|
 | Gana un "motor de reglas" que no tenía | Gana una distribución masiva (comunidad hispana) |
 | Su `doctor` pasa de entorno a código | Su IA ya está pre-configurada |
@@ -621,14 +621,14 @@ Corre `adkd scan`, muestra score, y si MobiAI tiene IA configurada, ofrece `Run 
 
 ### 🟡 Fase 1 — PoC MVP (Semana 1-2)
 
-- CLI `adkd scan` con **12 reglas críticas** (subset de Compose + coroutines + lifecycle).
+- CLI `kdoctor scan` con **12 reglas críticas** (subset de Compose + coroutines + lifecycle).
 - Sub-analyzer Detekt + Android Lint ya integrados (modo read-only).
 - Reporter console (rich) + JSON.
 - **NO IA todavía** — todo manual.
 
 ### 🟡 Fase 2 — AI Fixer local (Semana 3)
 
-- `adkd fix --ai` invocando **Claude Code** por línea de comandos.
+- `kdoctor fix --ai` invocando **Claude Code** por línea de comandos.
 - Prompt builder estructurado.
 - Modo `suggest` (no toca código), valida con un proyecto de prueba (`examples/bad-project`).
 
@@ -636,7 +636,7 @@ Corre `adkd scan`, muestra score, y si MobiAI tiene IA configurada, ofrece `Run 
 
 - Cálculo del score robusto.
 - Output SARIF + integración con **GitHub Code Scanning**.
-- `adkd hook install` para pre-push.
+- `kdoctor hook install` para pre-push.
 - Quality gate en CI con `fail-below`.
 
 ### 🟠 Fase 4 — Rule packs extensibles (Semana 5-6)
@@ -646,7 +646,7 @@ Corre `adkd scan`, muestra score, y si MobiAI tiene IA configurada, ofrece `Run 
 
 ### 🔴 Fase 5 — Integración MobiAI (Semana 7-8)
 
-- `adkd` instalable como MobiAI-skill.
+- `kdoctor` instalable como MobiAI-skill.
 - `mobiai doctor --code`.
 - Findings en `Graph`.
 - Provider "MobiAI" en `ai-fixer` bridge.
@@ -663,26 +663,26 @@ Corre `adkd scan`, muestra score, y si MobiAI tiene IA configurada, ofrece `Run 
 
 ```bash
 # 1. Instalar (cualquiera de las 3 formas)
-npm i -g adkd
-brew install adkd
+npm i -g kdoctor
+brew install kdoctor
 # o standalone (como MobiAI)
-curl -fsSL https://adkd.dev/install.sh | sh
+curl -fsSL https://kdoctor.dev/install.sh | sh
 
 # 2. Inicializar en tu proyecto Android
 cd tu-proyecto-android
-adkd init
-# → crea adkd.config.ts con defaults
+kdoctor init
+# → crea kdoctor.config.ts con defaults
 
 # 3. Escanear
-adkd scan
+kdoctor scan
 # → muestra score + findings rich console
 
 # 4. (Opcional) Dejar que la IA arregle
-adkd fix --ai
+kdoctor fix --ai
 # → sugiere fixes, te pregunta antes de aplicar
 
 # 5. Instalar hook de pre-push (bloquea pushes con score bajo)
-adkd hook install --fail-below 80
+kdoctor hook install --fail-below 80
 ```
 
 ---
@@ -693,7 +693,7 @@ Una regla custom es una **función TypeScript** que recibe un AST de Kotlin + me
 
 ```ts
 // rules/my-pack/compose-heavy-composable.ts
-import type { Rule, Finding } from 'adkd'
+import type { Rule, Finding } from 'kdoctor'
 
 export default {
   id: 'compose-heavy-composable',
@@ -724,8 +724,8 @@ export default {
 Publicar:
 
 ```bash
-adkd rules publish ./my-rule-pack
-# → publica a npm como @mi-org/adkd-rule-*
+kdoctor rules publish ./my-rule-pack
+# → publica a npm como @mi-org/kdoctor-rule-*
 ```
 
 ---
@@ -761,7 +761,7 @@ adkd rules publish ./my-rule-pack
 ### 14.5 Docs internas del PoC
 
 - `/examples/bad-project` — proyecto de prueba deliberadamente roto.
-- `/examples/good-project` — el mismo proyecto tras un `adkd fix --ai`.
+- `/examples/good-project` — el mismo proyecto tras un `kdoctor fix --ai`.
 - `/docs/rules` — spec de cada regla, autogenerada desde TS source.
 
 ---

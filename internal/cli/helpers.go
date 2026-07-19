@@ -7,13 +7,13 @@ import (
 )
 
 // resolveRulesPath encuentra rules/metadata.json siguiendo este orden:
-//  1. Env var ADKD_RULES_DIR (override explícito)
+//  1. Env var KDOCTOR_RULES_DIR (override explícito)
 //  2. Junto al binario: <exe>/rules/metadata.json, <exe>/../rules/, <exe>/../../rules/
 //  3. CWD: ./rules/metadata.json (modo desarrollo con `go run`)
 //
 // Devuelve error claro si no encuentra nada — sin fallback silencioso.
 func resolveRulesPath() (string, error) {
-	if p := os.Getenv("ADKD_RULES_DIR"); p != "" {
+	if p := os.Getenv("KDOCTOR_RULES_DIR"); p != "" {
 		candidate := filepath.Join(p, "metadata.json")
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate, nil

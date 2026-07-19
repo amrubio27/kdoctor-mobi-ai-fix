@@ -1,4 +1,4 @@
-// adkd init: crea adkd.config.yaml en el CWD con defaults sensatos.
+// kdoctor init: crea kdoctor.config.yaml en el CWD con defaults sensatos.
 package cli
 
 import (
@@ -14,9 +14,9 @@ func NewInitCmd() *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Create adkd.config.yaml in the current directory",
+		Short: "Create kdoctor.config.yaml in the current directory",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path := "adkd.config.yaml"
+			path := "kdoctor.config.yaml"
 			if !force {
 				if _, err := os.Stat(path); err == nil {
 					return fmt.Errorf("%s ya existe; usa --force para sobrescribir", path)
@@ -34,6 +34,6 @@ func NewInitCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing adkd.config.yaml")
+	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing kdoctor.config.yaml")
 	return cmd
 }

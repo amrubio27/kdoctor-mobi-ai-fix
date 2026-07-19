@@ -1,10 +1,10 @@
 // Build mínimo de examples/bad-project. Sólo lo necesario para que
-// `./gradlew detekt` produzca SARIF y adkd pueda parsearlo.
+// `./gradlew detekt` produzca SARIF y kdoctor pueda parsearlo.
 //
 // NO es un proyecto Android completo: lo abstraemos a Kotlin-only
 // porque detekt no requiere Android Manifest ni SDK. Si el usuario
 // quiere probar contra un proyecto Android real, basta con apuntar
-// `adkd scan --type=kmp / --type=android` a su proyecto.
+// `kdoctor scan --type=kmp / --type=android` a su proyecto.
 
 plugins {
     kotlin("jvm") version "1.9.22"

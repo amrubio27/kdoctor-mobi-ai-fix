@@ -1,5 +1,5 @@
 # Detekt config mínimo para examples/bad-project.
-# Activa las reglas que adkd mapea en rules/metadata.json como "live".
+# Activa las reglas que kdoctor mapea en rules/metadata.json como "live".
 # Plantilla basada en Detekt 1.23.x — si actualizas reglas, ajusta esto.
 
 build:

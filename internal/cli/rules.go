@@ -1,4 +1,4 @@
-// adkd rules: lista todas las reglas del catálogo con status.
+// kdoctor rules: lista todas las reglas del catálogo con status.
 package cli
 
 import (

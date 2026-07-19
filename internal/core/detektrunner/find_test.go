@@ -57,8 +57,8 @@ func TestIsValidSARIFRejectsMissingFile(t *testing.T) {
 
 func TestIsDetektSARIFPath(t *testing.T) {
 	cases := map[string]bool{
-		"/Users/foo/proj/build/reports/detekt/adkd.sarif":     true,
-		"/Users/foo/proj/app/build/reports/detekt/adkd.sarif": true,
+		"/Users/foo/proj/build/reports/detekt/kdoctor.sarif":     true,
+		"/Users/foo/proj/app/build/reports/detekt/kdoctor.sarif": true,
 		"/Users/foo/proj/somewhere/random/file.sarif":         false,
 		"/Users/foo/proj/build/something-else/detekt/out.sarif": false,
 	}

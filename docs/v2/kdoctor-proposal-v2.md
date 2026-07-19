@@ -1,4 +1,4 @@
-# adkd Â· Documento Maestro Revisado (V2) â€” MobIAI Skill Addon
+# kdoctor Â· Documento Maestro Revisado (V2) â€” MobIAI Skill Addon
 
 > ExtraÃ­do del PDF "MobiAi Cli PoC Addon.pdf". La segunda revisiÃ³n sustituye a la V1 en cuanto a arquitectura tÃ©cnica, manteniendo las reglas del catÃ¡logo original.
 
@@ -6,10 +6,10 @@
 
  Documento Maestro de Definición:
 
-adkd (Android/KMP Doctor AI Fix)
+kdoctor (Android/KMP Doctor AI Fix)
 
 Este documento define la arquitectura, fundamentos y hoja de ruta iterativa para el desarrollo
-de adkd, una herramienta de análisis estático y reparación automática de código potenciada
+de kdoctor, una herramienta de análisis estático y reparación automática de código potenciada
 por IA para el ecosistema Android, Kotlin Multiplatform (KMP) y Compose Multiplatform (CMP).
 El objetivo es construir un orquestador que evalúe la salud del proyecto y delegue la resolución
 de problemas a un LLM (a través de MobiAI), garantizando la seguridad del código, el respeto
@@ -18,7 +18,7 @@ por la arquitectura y la escalabilidad del análisis.
 1. Fundamentos Arquitectónicos: El Enfoque Híbrido
 
 Para evitar cuellos de botella en el parseo y mantener la herramienta robusta frente a las
-actualizaciones de Kotlin, adkd se divide en dos capas con responsabilidades únicas y estrictas:
+actualizaciones de Kotlin, kdoctor se divide en dos capas con responsabilidades únicas y estrictas:
 
     El Cerebro (Capa JVM - Análisis Estático): Utiliza herramientas nativas del ecosistema
         (Detekt, Lint). Las reglas personalizadas se construyen sobre la API PSI (Program
@@ -35,7 +35,7 @@ actualizaciones de Kotlin, adkd se divide en dos capas con responsabilidades úni
 Alucinaciones)
 
 Para que el LLM realice refactorizaciones complejas sin destruir la arquitectura ni perderse en
-archivos gigantes, adkd implementa tres técnicas de inyección de contexto:
+archivos gigantes, kdoctor implementa tres técnicas de inyección de contexto:
 
    1. Skeleton Context (Extracción de Esqueletos): El orquestador extrae y envía a la IA
         únicamente las firmas públicas (contratos, interfaces, constructores) de las
@@ -65,11 +65,11 @@ densidad para ser justo tanto en micro-módulos como en monolitos legacy:
 
 4. Circuito Cerrado de Validación (Safe Auto-Fix)
 
-La IA no tiene la última palabra. Antes de presentar un git diff al desarrollador, adkd implementa
+La IA no tiene la última palabra. Antes de presentar un git diff al desarrollador, kdoctor implementa
 un TDD inverso:
 
    1. La IA propone y aplica el parche temporalmente.
-   2. adkd lanza en background la compilación incremental (./gradlew assembleDebug o el
+   2. kdoctor lanza en background la compilación incremental (./gradlew assembleDebug o el
 
         target afectado).
    3. Si el parche rompe la compilación o los tests afectados, el error del compilador se
@@ -107,14 +107,14 @@ Objetivo: Implementar la lógica matemática para evaluar la salud del código.
 Fase 3: Integración como Skill de MobiAI
 
 Objetivo: Conectar el orquestador con la infraestructura de ejecución de IA.
-   1. Adaptador MobiAI: Exponer el comando adkd scan --json para que MobiAI lo consuma
+   1. Adaptador MobiAI: Exponer el comando kdoctor scan --json para que MobiAI lo consuma
         internamente.
 
    2. Generador de Prompts: Desarrollar el módulo que toma un Finding específico y
         construye el prompt base estructurado (Rol + Tarea + Archivo + Error).
 
    3. Inyección en Graph: Escribir la documentación de integración para que los hallazgos de
-        adkd se inyecten como anotaciones en el Graph de MobiAI.
+        kdoctor se inyecten como anotaciones en el Graph de MobiAI.
 
 Fase 4: Inyección de Contexto Arquitectónico
 
@@ -151,11 +151,11 @@ Objetivo: Desarrollar las reglas específicas de Android/KMP que detectan los ant
         Segunda revision de la propuesta (VER CON DETENIMIENTO):
 
    
-             Documento Maestro de Definición Revisado: adkd (Android/KMP Doctor AI Fix)
+             Documento Maestro de Definición Revisado: kdoctor (Android/KMP Doctor AI Fix)
 
-Visión General: adkd es un motor de análisis estático nativo y un orquestador de
+Visión General: kdoctor es un motor de análisis estático nativo y un orquestador de
        refactorización agentiva para Kotlin Multiplatform (KMP) y Compose
-       Multiplatform (CMP). A diferencia de los linters tradicionales, adkd no solo calcula
+       Multiplatform (CMP). A diferencia de los linters tradicionales, kdoctor no solo calcula
        un Health Score del proyecto, sino que utiliza una arquitectura híbrida
        ultrarrápida, reglas basadas en el nuevo compilador de Kotlin (K2) e integración
        semántica profunda con MobiAI Graph para delegar arreglos a modelos de IA
@@ -164,7 +164,7 @@ Visión General: adkd es un motor de análisis estático nativo y un orquestador de
 1. Arquitectura de Ingestión Híbrida (El fin del cuello de botella)
 
 Para evitar los tiempos muertos que supondría invocar tareas de Gradle desde un
-       entorno Node.js, adkd adopta un enfoque híbrido, desarrollando su núcleo CLI en
+       entorno Node.js, kdoctor adopta un enfoque híbrido, desarrollando su núcleo CLI en
        Go, alineándose con el ecosistema de MobiAI.
 
 El análisis se divide en dos fases:
@@ -174,7 +174,7 @@ El análisis se divide en dos fases:
          milisegundos para detectar antipatrones estructurales básicos en Compose (ej.
          estado mutable sin bloque remember).
      Pase Profundo (Puente de Ingestión Diferida): Para análisis que requieren
-         resolución de tipos compleja, adkd delega la ejecución a un proceso en
+         resolución de tipos compleja, kdoctor delega la ejecución a un proceso en
          background de Detekt/Lint a través de Gradle, y luego parsea eficientemente el
          reporte generado en formato estándar JSON o SARIF. Este reporte se une al del
          pase rápido para conformar el Health Score unificado.
@@ -182,18 +182,18 @@ El análisis se divide en dos fases:
 2. Motor de Reglas K2 (FIR) y Sinergia Comunitaria
 
 En lugar de basarnos en la API PSI (que quedará obsoleta o marginada) o reescribir
-       docenas de reglas desde cero, el análisis profundo de adkd aprovecha:
+       docenas de reglas desde cero, el análisis profundo de kdoctor aprovecha:
 
-     Frontend Compiler Plugins (K2): Las reglas personalizadas complejas de adkd
+     Frontend Compiler Plugins (K2): Las reglas personalizadas complejas de kdoctor
          se construirán como extensiones del frontend del compilador Kotlin K2,
          enganchándose nativamente mediante FirAdditionalCheckersExtension.
          Esto permite interceptar los nodos de sintaxis abstracta (AST) directamente
          durante la compilación oficial de JetBrains.
 
-     Empaquetado de Reglas Comunitarias: adkd se nutrirá de configuraciones ya
+     Empaquetado de Reglas Comunitarias: kdoctor se nutrirá de configuraciones ya
          probadas por la comunidad, como el paquete detekt-rules-compose de
          appKODE (para atrapar errores comunes como ReusedModifierInstance o
-         ModifierHeightWithText), enfocando el valor de adkd en puntuar y reparar,
+         ModifierHeightWithText), enfocando el valor de kdoctor en puntuar y reparar,
          no en reinventar reglas.
 
 3. Estrategia de IA: Prompts de Calidad vs. "Safe Auto-Fix"
@@ -206,19 +206,19 @@ El circuito de retroalimentación propuesto originalmente (donde la IA compilaba
     estrategias donde el LLM itera y critica recursivamente sus propios errores en
     bucle tienden a degradar la calidad del código, aumentando la verbosidad
     excesiva, introduciendo refactorizaciones alucinadas y rompiendo el formato.
- Quality-Focused Prompting: En su lugar, el puente de IA de adkd utilizará
+ Quality-Focused Prompting: En su lugar, el puente de IA de kdoctor utilizará
     estrategias Quality-Focused (Prompts Centrados en Calidad) de un solo paso.
     Añadir directivas estrictas de calidad en un prompt simple reduce la densidad
     de los "malos olores" de código entre un 7% y un 15% sin los peligros de la
     alucinación recursiva.
  La Brecha Sintaxis-Lógica: Como los LLMs suelen generar código
     sintácticamente válido (98%) pero lógicamente deficiente (alucinando variables
-    o colisionando namespaces), adkd bloqueará cambios que no superen su
+    o colisionando namespaces), kdoctor bloqueará cambios que no superen su
     validación estructural.
 
 4. Integración Profunda con MobiAI Graph (Prevención de Alucinaciones)
 
-En vez de parsear manifiestos de arquitectura desde build.gradle.kts, adkd se
+En vez de parsear manifiestos de arquitectura desde build.gradle.kts, kdoctor se
        sincroniza con MobiAI Graph.
 
      Cuando la IA recibe la instrucción de arreglar un problema complejo (ej.
@@ -235,11 +235,11 @@ En vez de parsear manifiestos de arquitectura desde build.gradle.kts, adkd se
 La verdadera adopción requiere ser invisible pero útil en Integración Continua.
        Inspirado en herramientas como react-doctor:
 
-     GitHub Actions / GitLab CI Nativas: adkd proveerá acciones oficiales que
+     GitHub Actions / GitLab CI Nativas: kdoctor proveerá acciones oficiales que
          comentan directamente sobre las Pull Requests.
 
      Líneas Base (Baselines) Incrementales: Para que los proyectos Legacy puedan
-         adoptar adkd sin bloquear todas las compilaciones, el CLI generará archivos de
+         adoptar kdoctor sin bloquear todas las compilaciones, el CLI generará archivos de
          baseline. El sistema --diff main asegurará que el Health Score solo castigue
          o requiera reparación para los code smells nuevos introducidos en el commit
          actual, ignorando pacíficamente la deuda técnica histórica.
@@ -254,16 +254,16 @@ e
     1                         remember o state hoisting) en
                               milisegundos.
 Fas    Puente de
-    e      Ingestión y    Comando Cobra CLI (adkd scan). Lanzamiento de
+    e      Ingestión y    Comando Cobra CLI (kdoctor scan). Lanzamiento de
     2      Reportes           Detekt en background, parseo del archivo SARIF
                               generado y unificación en un Health Score.
 
-Fas    Integración        Implementación de adkd scan --diff main
+Fas    Integración        Implementación de kdoctor scan --diff main
     e      CI/CD y            para GitHub Actions, gestión de líneas base
     3      Baselines          (baseline.xml) y inline comments en las PR.
 
 Fas    Motor de           Creación del archivo SKILL.md para empaquetar
-    e      Refactorizaci      adkd como habilidad de MobiAI. Prompts
+    e      Refactorizaci      kdoctor como habilidad de MobiAI. Prompts
     4      ón Agentiva        Quality-Focused conectados a MobiAI Graph
                               para arreglos locales.
 

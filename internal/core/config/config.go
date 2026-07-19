@@ -1,4 +1,4 @@
-// Package config carga y serializa adkd.config.yaml.
+// Package config carga y serializa kdoctor.config.yaml.
 //
 // Schema mínimo Fase 1:
 //   projectType: android|kmp|cmp

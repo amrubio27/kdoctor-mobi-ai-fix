@@ -1,10 +1,10 @@
-# adkd (Android / KMP / CMP Doctor AI Fix) — Plan Maestro de Implementación
+# kdoctor (Android / KMP / CMP Doctor AI Fix) — Plan Maestro de Implementación
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Construir `adkd`, un CLI nativo estilo `react-doctor` para Android / KMP / CMP, capaz de escanear repos Kotlin, asignar un **Health Score 0–100** sobre un catálogo inicial de ~40 reglas (subset crítico de las 64 que define la V1), ingestar el reporte SARIF de Detekt, ejecutar fixes mediante un AI-Fixer agnóstico al LLM (Claude Code, Cursor, MobiAI…), y distribuirse como skill instalable de MobiAI.
+**Goal:** Construir `kdoctor`, un CLI nativo estilo `react-doctor` para Android / KMP / CMP, capaz de escanear repos Kotlin, asignar un **Health Score 0–100** sobre un catálogo inicial de ~40 reglas (subset crítico de las 64 que define la V1), ingestar el reporte SARIF de Detekt, ejecutar fixes mediante un AI-Fixer agnóstico al LLM (Claude Code, Cursor, MobiAI…), y distribuirse como skill instalable de MobiAI.
 
-**Architecture:** **CLI en Go + Cobra** que lanza `./gradlew detekt` (o el binario `detekt` directamente) en un subproceso, parsea su salida SARIF 2.1 en Go, mapea las reglas Detekt a las reglas `adkd` (definidas como `cluster/rule-id` con severidad y remediation), calcula un Health Score 0–100 con la fórmula V1 (errores·5 + warnings·2 + info·0.5, acotado 0–100), lo reporta por consola rich, JSON y SARIF, y expone un fixer calidad-prompt sin RCI que delega al LLM detectado. La integración con MobiAI es un `SKILL.md` + `plugin.json` que el `mobiai` CLI puede instalar como pack independiente, y `adkd scan --mobiai` vuelca los findings al `Graph` semántico cuando existe.
+**Architecture:** **CLI en Go + Cobra** que lanza `./gradlew detekt` (o el binario `detekt` directamente) en un subproceso, parsea su salida SARIF 2.1 en Go, mapea las reglas Detekt a las reglas `kdoctor` (definidas como `cluster/rule-id` con severidad y remediation), calcula un Health Score 0–100 con la fórmula V1 (errores·5 + warnings·2 + info·0.5, acotado 0–100), lo reporta por consola rich, JSON y SARIF, y expone un fixer calidad-prompt sin RCI que delega al LLM detectado. La integración con MobiAI es un `SKILL.md` + `plugin.json` que el `mobiai` CLI puede instalar como pack independiente, y `kdoctor scan --mobiai` vuelca los findings al `Graph` semántico cuando existe.
 
 **Tech Stack:**
 - Go 1.22+ (CLI, SARIF parser, rule engine) — `github.com/spf13/cobra`, `github.com/charmbracelet/huh` (UI) o `github.com/charmbracelet/lipgloss` + `bubbletea` para rich console.
@@ -21,12 +21,12 @@
 
 - **Lenguaje CLI:** Go 1.22+, sin node, sin cgo en Fase 1–4. Si una Fase requiere compilador Kotlin embedido (5.x), decidir tras spike.
 - **Licencia:** MIT, alineada con react-doctor y MobiAI. `LICENSE` en raíz desde el primer commit.
-- **Naming binario:** Siempre `adkd`. Comando primario `adkd scan`. La herramienta NO se llama `doctor-android`, `kmp-doctor`, etc.
-- **Configuración del usuario:** `adkd.config.yaml` (YAML, no TS — V2 explícitamente dice evitar el ecosistema Node). Los campos clave son: `projectType` (android|kmp|cmp), `paths.kotlin`, `rules` (mapa `cluster/name: severity`), `score.failBelow`, `aiFixer.provider`, `aiFixer.mode`.
+- **Naming binario:** Siempre `kdoctor`. Comando primario `kdoctor scan`. La herramienta NO se llama `doctor-android`, `kmp-doctor`, etc.
+- **Configuración del usuario:** `kdoctor.config.yaml` (YAML, no TS — V2 explícitamente dice evitar el ecosistema Node). Los campos clave son: `projectType` (android|kmp|cmp), `paths.kotlin`, `rules` (mapa `cluster/name: severity`), `score.failBelow`, `aiFixer.provider`, `aiFixer.mode`.
 - **Contrato de datos:** El reporte JSON canónico es `Finding{ID, Cluster, Rule, Severity, File, Line, Column, Message, FixHint, DocURL}[]` con `HealthScore int`, `Summary {Errors, Warnings, Info}` y `SchemaVersion = "3"` (alineado con react-doctor para que tools downstream lo entiendan).
 - **SARIF out:** SARIF 2.1.0 estricto para `--sarif`, apto para GitHub Code Scanning sin flags extra.
-- **Repo layout:** Todo en un único monorepo Go con `cmd/adkd`, `internal/*`, `scripts/`, `examples/`, `docs/`, `.github/workflows/`, `plugin.json`, `SKILL.md`.
-- **CI del propio `adkd`:** Tests Go + lint en cada PR a `main`. Los releases se firman vía tag `cli-v*` (convención heredada de MobiAI).
+- **Repo layout:** Todo en un único monorepo Go con `cmd/kdoctor`, `internal/*`, `scripts/`, `examples/`, `docs/`, `.github/workflows/`, `plugin.json`, `SKILL.md`.
+- **CI del propio `kdoctor`:** Tests Go + lint en cada PR a `main`. Los releases se firman vía tag `cli-v*` (convención heredada de MobiAI).
 - **No rotura de la V1:** El catálogo de 64 reglas (en `ANDROID_DOCTOR_FIX_AI.md`) **debe** estar presente en `docs/rules/` con frontmatter (severidad, descripción, ejemplo malo, ejemplo bueno) **antes** de empezar a codificar reglas en Go. Si una regla no migrada aún, queda listada como `status: planned` — NUNCA se borra del catálogo sin decisión explícita.
 - **V1 website se conserva:** `docs/website/index.html` se mantiene, **pero** se actualiza en Fase 3 para decir "Native Go" en lugar de "TypeScript" en los puntos donde aparece. No rehacer todo el sitio en este plan.
 - **Código muerto:** No se acepta. Cada función pública tiene tests.
@@ -50,7 +50,7 @@
 
 ### Lo que NO se pierde
 - Las **64 reglas** de V1 son el catálogo: vive en `docs/rules/` y `rules/metadata.json`.
-- El comando **`adkd scan`** y la salida con Health Score vistosa.
+- El comando **`kdoctor scan`** y la salida con Health Score vistosa.
 - La página web `docs/website/index.html` (se reescribe en Fase 3).
 - La integración con MobiAI como skill.
 
@@ -65,16 +65,16 @@
 
 ```text
 android-kmp-doctor-ai-fix/
-├── cmd/adkd/main.go                 # entrypoint Cobra
+├── cmd/kdoctor/main.go                 # entrypoint Cobra
 ├── internal/
 │   ├── cli/                         # scan.go, fix.go, init.go, doctor.go, hook.go, ci.go
 │   ├── core/
 │   │   ├── types/                   # Finding, Rule, HealthScore, Summary
 │   │   ├── sarif/                   # parser SARIF 2.1.0 estricto
 │   │   ├── detektrunner/            # spawn detekt o ./gradlew detekt, captura SARIF
-│   │   ├── rulemap/                 # Detekt ID → adkd rule + metadata
+│   │   ├── rulemap/                 # Detekt ID → kdoctor rule + metadata
 │   │   ├── grader/                  # cálculo Health Score
-│   │   └── config/                  # adkd.config.yaml loading
+│   │   └── config/                  # kdoctor.config.yaml loading
 │   ├── reporter/
 │   │   ├── console/                 # rich TUI (lipgloss + huh)
 │   │   ├── json/                    # Finding[] v3 JSON
@@ -90,7 +90,7 @@ android-kmp-doctor-ai-fix/
 │   └── metadata.json                # las 64 reglas + status (live|planned)
 ├── examples/
 │   ├── bad-project/                 # proyecto Android deliberadamente roto
-│   ├── good-project/                # mismo proyecto tras adkd fix --ai
+│   ├── good-project/                # mismo proyecto tras kdoctor fix --ai
 │   └── scoring-fixtures/            # JSON con Health Score esperado por proyecto
 ├── scripts/
 │   ├── install.sh / install.cmd / install.ps1
@@ -99,14 +99,14 @@ android-kmp-doctor-ai-fix/
 │   ├── website/                     # landing (existente, se rehace en Fase 3)
 │   ├── rules/                       # una .md por regla (frontmatter + ejemplos)
 │   ├── superpowers/plans/           # (este archivo vive aquí)
-│   └── v2/adkd-proposal-v2.md       # (ya creado desde el PDF)
+│   └── v2/kdoctor-proposal-v2.md       # (ya creado desde el PDF)
 ├── .github/workflows/
-│   ├── adkd-ci.yml                  # tests + lint Go
-│   ├── adkd-action.yml              # reusable action (composite)
+│   ├── kdoctor-ci.yml                  # tests + lint Go
+│   ├── kdoctor-action.yml              # reusable action (composite)
 │   └── score-gate.yml               # ejemplo quality-gate
 ├── plugin.json                      # MobiAI skill descriptor
 ├── SKILL.md                         # instrucciones para LLMs (cargado por Cursor/Claude)
-├── adkd.config.example.yaml
+├── kdoctor.config.example.yaml
 ├── .goreleaser.yml                  # 6 OS/arch
 ├── go.mod, go.sum
 ├── LICENSE                          # MIT
@@ -119,16 +119,16 @@ android-kmp-doctor-ai-fix/
 
 # Fase 1 — Foundations (Semana 1–2)
 
-**Objetivo:** `adkd scan` end-to-end sobre un susbset de 15 reglas críticas (Compose Performance + Lifecycle + Coroutines), con Health Score, salida consola + JSON, validado contra `examples/bad-project` y `examples/good-project` con fixtures.
+**Objetivo:** `kdoctor scan` end-to-end sobre un susbset de 15 reglas críticas (Compose Performance + Lifecycle + Coroutines), con Health Score, salida consola + JSON, validado contra `examples/bad-project` y `examples/good-project` con fixtures.
 
 ### Task 1.1 — Inicializar el monorepo Go + Cobra + git
 
 **Files:**
-- Create: `go.mod`, `go.sum`, `cmd/adkd/main.go`, `cmd/adkd/main_test.go`
+- Create: `go.mod`, `go.sum`, `cmd/kdoctor/main.go`, `cmd/kdoctor/main_test.go`
 - Create: `.gitignore`, `LICENSE`, `README.md` mínimo
 
 **Interfaces:**
-- Produce: binary `adkd` con flag `--version` que imprime `adkd version 0.1.0`.
+- Produce: binary `kdoctor` con flag `--version` que imprime `kdoctor version 0.1.0`.
 
 - [ ] **Step 1: Init repo git local y crear `.gitignore`**
 
@@ -141,7 +141,7 @@ git init -b main
 
 ```gitignore
 # Binarios
-/adkd
+/kdoctor
 /dist/
 *.exe
 
@@ -168,7 +168,7 @@ Thumbs.db
 - [ ] **Step 2: Crear módulo Go**
 
 ```bash
-go mod init github.com/adkd/adkd
+go mod init github.com/kdoctor/kdoctor
 ```
 
 Versión Go objetivo: 1.22+. Añade `go 1.22` al `go.mod` si el `go mod init` pone una más baja.
@@ -181,7 +181,7 @@ go get github.com/spf13/cobra@latest
 
 - [ ] **Step 4: Escribir el entrypoint mínimo**
 
-`cmd/adkd/main.go`:
+`cmd/kdoctor/main.go`:
 
 ```go
 package main
@@ -197,7 +197,7 @@ var version = "0.1.0"
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "adkd",
+		Use:   "kdoctor",
 		Short: "Android / KMP / CMP Doctor with AI-driven fixes",
 		Version: version,
 	}
@@ -217,7 +217,7 @@ func main() {
 
 - [ ] **Step 5: Test del version flag**
 
-`cmd/adkd/main_test.go`:
+`cmd/kdoctor/main_test.go`:
 
 ```go
 package main
@@ -255,7 +255,7 @@ Esperado: PASS.
 
 ```bash
 git add .gitignore go.mod go.sum cmd/ LICENSE README.md
-git commit -m "feat: scaffold adkd CLI in Go with cobra and version flag"
+git commit -m "feat: scaffold kdoctor CLI in Go with cobra and version flag"
 ```
 
 ### Task 1.2 — Definir el contrato de datos (`Finding`, `Rule`, `HealthScore`, `Summary`)
@@ -272,7 +272,7 @@ git commit -m "feat: scaffold adkd CLI in Go with cobra and version flag"
 `internal/core/types/types.go`:
 
 ```go
-// Package types define el contrato canónico de datos de adkd.
+// Package types define el contrato canónico de datos de kdoctor.
 // SchemaVersion 3 para alinear con react-doctor y tools downstream.
 package types
 
@@ -554,7 +554,7 @@ Esta es la **decisión arquitectónica más sensible** de Fase 1. Empezamos con 
 - Create: `internal/core/detektrunner/init_test.go`
 
 **Interfaces:**
-- `WriteInitScript(projectDir string) (string, error)` — escribe `adkd-detekt.init.gradle.kts` en `projectDir` y devuelve la ruta.
+- `WriteInitScript(projectDir string) (string, error)` — escribe `kdoctor-detekt.init.gradle.kts` en `projectDir` y devuelve la ruta.
 
 - [ ] **Step 1: Template del init-script**
 
@@ -568,18 +568,18 @@ import (
 	"path/filepath"
 )
 
-const initScriptName = "adkd-detekt.init.gradle.kts"
+const initScriptName = "kdoctor-detekt.init.gradle.kts"
 
 // Plantilla equivalente al bloque Kotlin inline mostrado en Tarea 1.4.
 // Se escribe a projectDir y ./gradlew lo carga con --init-script.
-var initScriptTemplate = `// Generated by adkd — do not edit by hand.
+var initScriptTemplate = `// Generated by kdoctor — do not edit by hand.
 allprojects {
 	detekt {
 		xml = false
 		sarif {
 			required = true
 			output = rootProject.layout.buildDirectory
-				.file("reports/detekt/adkd.sarif").get().asFile
+				.file("reports/detekt/kdoctor.sarif").get().asFile
 		}
 	}
 }
@@ -616,7 +616,7 @@ func TestWriteInitScript(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	data, err := os.ReadFile(path)
 	if err != nil { t.Fatal(err) }
-	if !strings.Contains(string(data), "adkd-detekt.init.gradle.kts") &&
+	if !strings.Contains(string(data), "kdoctor-detekt.init.gradle.kts") &&
 		!strings.Contains(string(data), "allprojects") {
 		t.Fatalf("template malformed: %q", string(data))
 	}
@@ -648,7 +648,7 @@ func runGradlew(ctx context.Context, opts Options) (string, error) {
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("./gradlew detekt: %w", err)
 	}
-	// SARIF Gradle plugin escribe tipicamente a build/reports/detekt/adkd.sarif.
+	// SARIF Gradle plugin escribe tipicamente a build/reports/detekt/kdoctor.sarif.
 	// En multi-modulo (`:app`, `:core`, ...) puede aparecer en
 	// <ProjectDir>/<module>/build/... Por eso hacemos find recursivo.
 	return findProducedSARIF(opts.ProjectDir), nil
@@ -684,7 +684,7 @@ func fileExists(p string) bool {
 
 ```bash
 git add internal/core/detektrunner/
-git commit -m "feat(detektrunner): write adkd-detekt.init.gradle.kts for gradlew path"
+git commit -m "feat(detektrunner): write kdoctor-detekt.init.gradle.kts for gradlew path"
 ```
 
 > Sin esta Tarea, si `Detect()` elige `ModeGradleWrap`, el comando fallará en silencio porque el init-script nunca existió.
@@ -756,7 +756,7 @@ func runGradlew(ctx context.Context, opts Options) (string, error) {
 	// Forzamos el output vía init-script (ver ExampleInitScript abajo).
 	args := []string{
 		"detekt",
-		"--init-script", "adkd-detekt.init.gradle.kts",
+		"--init-script", "kdoctor-detekt.init.gradle.kts",
 	}
 	cmd := exec.CommandContext(ctx, gradlew, args...)
 	cmd.Dir = opts.ProjectDir
@@ -773,15 +773,15 @@ func runGradlew(ctx context.Context, opts Options) (string, error) {
 Y el init-script que `runGradlew` referencia, generado en Task 1.4b:
 
 ```kotlin
-// adkd-detekt.init.gradle.kts (plantilla, escrita por adkd si opts.UseStandalone=false)
+// kdoctor-detekt.init.gradle.kts (plantilla, escrita por kdoctor si opts.UseStandalone=false)
 // Inyectado en opts.ProjectDir antes de invocar ./gradlew detekt.
 allprojects {
 	detekt {
-		xml = false  // SARIF only en adkd
+		xml = false  // SARIF only en kdoctor
 		sarif {
 			required = true
 			output = rootProject.layout.buildDirectory
-				.file("reports/detekt/adkd.sarif").get().asFile
+				.file("reports/detekt/kdoctor.sarif").get().asFile
 		}
 	}
 }
@@ -871,7 +871,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/core/types"
 )
 
 type doc struct {
@@ -974,7 +974,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/core/types"
 )
 
 func TestParseGolden(t *testing.T) {
@@ -1006,14 +1006,14 @@ git add internal/core/sarif/
 git commit -m "feat(sarif): strict OASIS SARIF 2.1.0 parser"
 ```
 
-### Task 1.6 — Rule mapping (Detekt ID → adkd rule)
+### Task 1.6 — Rule mapping (Detekt ID → kdoctor rule)
 
 **Files:**
 - Create: `internal/core/rulemap/mapping.go`
 - Create: `internal/core/rulemap/mapping_test.go`
 
 **Interfaces:**
-- `LoadRules(dir string) ([]types.Rule, error)` — carga `rules/metadata.json` desde la raíz del proyecto adkd.
+- `LoadRules(dir string) ([]types.Rule, error)` — carga `rules/metadata.json` desde la raíz del proyecto kdoctor.
 - `LoadBuiltins() []types.Rule` — devuelve las 11 reglas built-in cuyo target es una regla Detekt conocida (mantenidas aquí como single source of truth, sincronizadas manualmente con `rules/metadata.json`).
 - `Map(findings []types.Finding) []types.Finding` — enriquece con ID/Cluster/Severity/FixHint buscando por `rule.DetektRule == finding.Rule`. Filings sin mapear quedan con `ID: "unmapped:<rule>"` y `Cluster: "unknown"`.
 
@@ -1030,7 +1030,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/core/types"
 )
 
 // LoadRules lee rules/metadata.json y devuelve el catálogo.
@@ -1058,7 +1058,7 @@ package rulemap
 import (
 	"sort"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/core/types"
 )
 
 // Index es un índice in-memory construido desde []types.Rule.
@@ -1115,7 +1115,7 @@ package rulemap
 import (
 	"testing"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/core/types"
 )
 
 func TestLoadRulesFromFixture(t *testing.T) {
@@ -1179,7 +1179,7 @@ git commit -m "feat(rulemap): load rules catalog from rules/metadata.json (singl
 // Fórmula V1: score = min(100, max(0, 100 - errors*5 - warnings*2 - info*0.5))
 package grader
 
-import "github.com/adkd/adkd/internal/core/types"
+import "github.com/kdoctor/kdoctor/internal/core/types"
 
 func Score(findings []types.Finding) (int, types.Summary) {
 	var s types.Summary
@@ -1206,7 +1206,7 @@ package grader
 import (
 	"testing"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/core/types"
 )
 
 func TestEmptyIs100(t *testing.T) {
@@ -1265,7 +1265,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/core/types"
 )
 
 func RenderReport(r types.Report, w io.Writer) error {
@@ -1325,7 +1325,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/core/types"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -1364,14 +1364,14 @@ git add internal/reporter/jsonreporter/
 git commit -m "feat(reporter): JSON reporter with schema v3"
 ```
 
-### Task 1.10 — Wire command `adkd scan` end-to-end
+### Task 1.10 — Wire command `kdoctor scan` end-to-end
 
 **Files:**
 - Create: `internal/cli/scan.go`
 - Create: `internal/cli/scan_test.go`
-- Modify: `cmd/adkd/main.go` (vincular `newScanCmd`)
+- Modify: `cmd/kdoctor/main.go` (vincular `newScanCmd`)
 
-- [ ] **Step 1: Implementar `adkd scan`**
+- [ ] **Step 1: Implementar `kdoctor scan`**
 
 `internal/cli/scan.go`:
 
@@ -1386,13 +1386,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/adkd/adkd/internal/core/detektrunner"
-	"github.com/adkd/adkd/internal/core/grader"
-	"github.com/adkd/adkd/internal/core/rulemap"
-	"github.com/adkd/adkd/internal/core/sarif"
-	"github.com/adkd/adkd/internal/core/types"
-	"github.com/adkd/adkd/internal/reporter/console"
-	jsonrep "github.com/adkd/adkd/internal/reporter/jsonreporter"
+	"github.com/kdoctor/kdoctor/internal/core/detektrunner"
+	"github.com/kdoctor/kdoctor/internal/core/grader"
+	"github.com/kdoctor/kdoctor/internal/core/rulemap"
+	"github.com/kdoctor/kdoctor/internal/core/sarif"
+	"github.com/kdoctor/kdoctor/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/reporter/console"
+	jsonrep "github.com/kdoctor/kdoctor/internal/reporter/jsonreporter"
 )
 
 func newScanCmd() *cobra.Command {
@@ -1403,7 +1403,7 @@ func newScanCmd() *cobra.Command {
 		Short: "Scan the project and compute Health Score",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			wd, _ := os.Getwd()
-			sarifPath := filepath.Join(os.TempDir(), "adkd-detekt.sarif")
+			sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt.sarif")
 			if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
 				ProjectDir: wd, SARIFOutput: sarifPath,
 			}); err != nil { return fmt.Errorf("detekt: %w", err) }
@@ -1430,7 +1430,7 @@ func newScanCmd() *cobra.Command {
 
 - [ ] **Step 2: Vincular en main.go**
 
-Verificar que `cmd/adkd/main.go` ya invoca `newScanCmd()` (añadido en Tarea 1.1). No requiere cambios aquí.
+Verificar que `cmd/kdoctor/main.go` ya invoca `newScanCmd()` (añadido en Tarea 1.1). No requiere cambios aquí.
 
 - [ ] **Step 3 (P1 #5 fix): Wirear flags `--prefer-standalone` + resolver path de metadata.json**
 
@@ -1448,12 +1448,12 @@ Verificar que `cmd/adkd/main.go` ya invoca `newScanCmd()` (añadido en Tarea 1.1
  		Short: "Scan the project and compute Health Score",
  		RunE: func(cmd *cobra.Command, args []string) error {
  			wd, _ := os.Getwd()
--			sarifPath := filepath.Join(os.TempDir(), "adkd-detekt.sarif")
+-			sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt.sarif")
 -			if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
 -				ProjectDir: wd, SARIFOutput: sarifPath,
 -			}); err != nil { return fmt.Errorf("detekt: %w", err) }
 +			mode := detektrunner.Detect(wd, preferStandalone)
-+			sarifPath := filepath.Join(os.TempDir(), "adkd-detekt.sarif")
++			sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt.sarif")
 +			out := cmd.OutOrStdout()
 +			if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
 +				ProjectDir:    wd,
@@ -1490,7 +1490,7 @@ Verificar que `cmd/adkd/main.go` ya invoca `newScanCmd()` (añadido en Tarea 1.1
 +
 +func resolveRulesPath() (string, error) {
 +	// 1. Env var override
-+	if p := os.Getenv("ADKD_RULES_DIR"); p != "" {
++	if p := os.Getenv("KDOCTOR_RULES_DIR"); p != "" {
 +		return filepath.Join(p, "metadata.json"), nil
 +	}
 +	// 2. Relative to the running binary (para binarios en dist/)
@@ -1510,7 +1510,7 @@ Verificar que `cmd/adkd/main.go` ya invoca `newScanCmd()` (añadido en Tarea 1.1
 +	if _, err := os.Stat("rules/metadata.json"); err == nil {
 +		return "rules/metadata.json", nil
 +	}
-+	return "", fmt.Errorf("rules/metadata.json no encontrado; set ADKD_RULES_DIR o compila con reglas dentro del directorio del binario")
++	return "", fmt.Errorf("rules/metadata.json no encontrado; set KDOCTOR_RULES_DIR o compila con reglas dentro del directorio del binario")
 +}
 ```
 
@@ -1520,7 +1520,7 @@ Verificar que `cmd/adkd/main.go` ya invoca `newScanCmd()` (añadido en Tarea 1.1
 mkdir -p examples/bad-project
 cd examples/bad-project && \
 echo 'package p\nfun a() = println(123)' > Foo.kt && \
-go run ./cmd/adkd scan --type=android
+go run ./cmd/kdoctor scan --type=android
 ```
 
 Esperado: muestra `Health Score: 92/100` aprox y un finding por cada regla Detekt.
@@ -1528,14 +1528,14 @@ Esperado: muestra `Health Score: 92/100` aprox y un finding por cada regla Detek
 - [ ] **Step 5: Commit**
 
 ```bash
-git add internal/cli/ cmd/adkd/
-git commit -m "feat(cli): wire adkd scan end-to-end with --prefer-standalone and rules path resolution"
+git add internal/cli/ cmd/kdoctor/
+git commit -m "feat(cli): wire kdoctor scan end-to-end with --prefer-standalone and rules path resolution"
 ```
 
-### Task 1.11 — `adkd init` + `adkd.config.yaml`
+### Task 1.11 — `kdoctor init` + `kdoctor.config.yaml`
 
 **Files:**
-- Create: `adkd.config.example.yaml`
+- Create: `kdoctor.config.example.yaml`
 - Create: `internal/cli/init.go`
 - Create: `internal/core/config/config.go`
 - Create: `internal/core/config/config_test.go`
@@ -1565,7 +1565,7 @@ func Default() Config {
 }
 ```
 
-- [ ] **Step 2: `adkd init` escribe el YAML por defecto**
+- [ ] **Step 2: `kdoctor init` escribe el YAML por defecto**
 
 `internal/cli/init.go` (extracto):
 
@@ -1576,7 +1576,7 @@ func newInitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := config.Default()
 			data, _ := yaml.Marshal(c)
-			return os.WriteFile("adkd.config.yaml", data, 0644)
+			return os.WriteFile("kdoctor.config.yaml", data, 0644)
 		},
 	}
 }
@@ -1596,8 +1596,8 @@ func TestLoad(t *testing.T) {
 - [ ] **Step 4: Commit**
 
 ```bash
-git add internal/core/config/ internal/cli/init.go adkd.config.example.yaml
-git commit -m "feat(config): adkd init + adkd.config.yaml with YAML v1 schema"
+git add internal/core/config/ internal/cli/init.go kdoctor.config.example.yaml
+git commit -m "feat(config): kdoctor init + kdoctor.config.yaml with YAML v1 schema"
 ```
 
 ### Task 1.12 — Examples: `examples/bad-project` y `examples/good-project` con fixtures
@@ -1622,7 +1622,7 @@ git commit -m "feat(config): adkd init + adkd.config.yaml with YAML v1 schema"
 ```go
 // scripts/evalprojects/main.go
 // evalprojects itera sobre examples/scoring-fixtures/*.json, ejecuta
-// `adkd scan --json` en el projectPath asociado y comprueba que el
+// `kdoctor scan --json` en el projectPath asociado y comprueba que el
 // HealthScore resultante está dentro del rango esperado.
 //
 // Uso: go run ./scripts/evalprojects
@@ -1636,7 +1636,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/kdoctor/kdoctor/internal/core/types"
 )
 
 type Fixture struct {
@@ -1656,12 +1656,12 @@ type report struct {
 	Findings      []finding `json:"findings"`
 }
 
-func evaluate(fixture Fixture, adkdBinary string) error {
-	cmd := exec.Command(adkdBinary, "scan", "--json", "--type=android")
+func evaluate(fixture Fixture, kdoctorBinary string) error {
+	cmd := exec.Command(kdoctorBinary, "scan", "--json", "--type=android")
 	cmd.Dir = fixture.ProjectPath
 	out, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("adkd scan %s: %w", fixture.ProjectPath, err)
+		return fmt.Errorf("kdoctor scan %s: %w", fixture.ProjectPath, err)
 	}
 	var r report
 	if err := json.Unmarshal(out, &r); err != nil {
@@ -1688,10 +1688,10 @@ func evaluate(fixture Fixture, adkdBinary string) error {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "uso: evalprojects <path-a-adkd-binary>")
+		fmt.Fprintln(os.Stderr, "uso: evalprojects <path-a-kdoctor-binary>")
 		os.Exit(2)
 	}
-	adkdBin := os.Args[1]
+	kdoctorBin := os.Args[1]
 	fixturesGlob := filepath.Join("examples", "scoring-fixtures", "*.json")
 	files, err := filepath.Glob(fixturesGlob)
 	if err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
@@ -1706,7 +1706,7 @@ func main() {
 		if err := json.Unmarshal(data, &fix); err != nil {
 			fmt.Fprintln(os.Stderr, f, err); fails++; continue
 		}
-		if err := evaluate(fix, adkdBin); err != nil {
+		if err := evaluate(fix, kdoctorBin); err != nil {
 			fmt.Fprintln(os.Stderr, "❌", err); fails++; continue
 		}
 		fmt.Println("✅", fix.ProjectPath)
@@ -1783,7 +1783,7 @@ Lee `baseline.xml` (formato Detekt-compatible) y descarta findings listados.
 ### Task 2.4 — GitHub Action composite
 
 **Files:**
-- Create: `.github/workflows/adkd-action.yml` + `.github/actions/adkd/action.yml`
+- Create: `.github/workflows/kdoctor-action.yml` + `.github/actions/kdoctor/action.yml`
 
 Reusable action con inputs `fail-below`, `diff`, `baseline`.
 
@@ -1793,7 +1793,7 @@ Reusable action con inputs `fail-below`, `diff`, `baseline`.
 - Create: `internal/cli/hook.go`
 - Modify: docs/website/index.html (microcopy sobre el hook)
 
-`adkd hook install --fail-below 80` crea `.git/hooks/pre-push` que ejecuta `adkd scan --fail-below 80` y bloquea si falla.
+`kdoctor hook install --fail-below 80` crea `.git/hooks/pre-push` que ejecuta `kdoctor scan --fail-below 80` y bloquea si falla.
 
 ---
 
@@ -1828,7 +1828,7 @@ Stubs mínimos — comando base + flag a descubrir en Sprint 4.
 
 Re-lectura de `.kt` modificado, validación con regex de paréntesis balanceados, conteo de errores sintácticos obvios. Si falla, descartar el patch y devolver mensaje al usuario.
 
-### Task 3.5 — `adkd fix --ai` command
+### Task 3.5 — `kdoctor fix --ai` command
 
 **Files:**
 - Create: `internal/cli/fix.go`
@@ -1847,7 +1847,7 @@ Reemplazar cualquier mención a "Node/TS" por "Native Go · Cobra". Añadir enla
 
 **Files:**
 - Create: `examples/bad-project/` con bugs que el fixer arregla
-- Create: `examples/good-project/` mismo proyecto tras `adkd fix --ai`
+- Create: `examples/good-project/` mismo proyecto tras `kdoctor fix --ai`
 
 Grabar la salida en `examples/demo-output.txt` (referencia para CI docs).
 
@@ -1861,18 +1861,18 @@ Grabar la salida en `examples/demo-output.txt` (referencia para CI docs).
 - Create: `SKILL.md`
 - Create: `.mobiai/plugin.json` (descriptor que el CLI `mobiai` consume)
 
-> **CRÍTICO (P1 #9):** El formato NO es Cursor (`*.cursorrules`) ni Claude Code (`~/.claude/skills/<skill>/SKILL.md`). MobiAI consume `agentskills.io`, mismo schema que Anthropic para sus skills. El frontmatter **debe** respetar este contrato, si no `mobiai skills install adkd` falla silenciosamente.
+> **CRÍTICO (P1 #9):** El formato NO es Cursor (`*.cursorrules`) ni Claude Code (`~/.claude/skills/<skill>/SKILL.md`). MobiAI consume `agentskills.io`, mismo schema que Anthropic para sus skills. El frontmatter **debe** respetar este contrato, si no `mobiai skills install kdoctor` falla silenciosamente.
 
 `SKILL.md` (frontmatter exacto, copiar sin modificar campos):
 
 ```markdown
 ---
-name: adkd
-description: Ejecuta `adkd scan` en proyectos Android/KMP/CMP para auditar la salud del código. Encuentra antipatrones en Compose, coroutines, lifecycle y arquitectura; produce un Health Score 0–100 y findings accionables. Usar cuando el usuario pida auditar, revisar o aplicar fixes automáticos a código Android/Kotlin.
+name: kdoctor
+description: Ejecuta `kdoctor scan` en proyectos Android/KMP/CMP para auditar la salud del código. Encuentra antipatrones en Compose, coroutines, lifecycle y arquitectura; produce un Health Score 0–100 y findings accionables. Usar cuando el usuario pida auditar, revisar o aplicar fixes automáticos a código Android/Kotlin.
 when_to_use: Cuando hay un proyecto Android/KMP/CMP y el usuario quiere diagnóstico, score, o auto-fix con IA.
 ---
 
-# adkd — Android/KMP/CMP Doctor
+# kdoctor — Android/KMP/CMP Doctor
 
 ## Cuándo invocar
 
@@ -1882,14 +1882,14 @@ when_to_use: Cuando hay un proyecto Android/KMP/CMP y el usuario quiere diagnós
 
 ## Comandos principales
 
-### 1. `adkd scan`
+### 1. `kdoctor scan`
 Ejecuta en la raíz del proyecto. Devuelve:
 - Health Score (0–100).
 - Lista de findings agrupados por cluster (compose-performance, coroutines, lifecycle, architecture, accessibility, testing, security, kmp, dead-code).
 - Modo `--json` para CI; modo `--sarif` para GitHub Code Scanning.
 - Modo `--diff main` para auditar solo cambios nuevos respecto a una rama.
 
-### 2. `adkd fix --ai`
+### 2. `kdoctor fix --ai`
 Tres modos:
 - `--mode suggest` (default): genera `fixes.md`, NO toca código.
 - `--mode interactive`: pregunta por cada fix.
@@ -1898,15 +1898,15 @@ Tres modos:
 El LLM provider se detecta automáticamente (`provider: auto`). MobiAI, Claude Code, Cursor, Gemini CLI, Codex funcionan out-of-the-box.
 
 ### 3. `mobiai doctor --code`
-Una vez instalado `mobiai skills install adkd`, este subcomando corre `adkd scan` y, si el usuario acepta, lanza `--fix --ai`.
+Una vez instalado `mobiai skills install kdoctor`, este subcomando corre `kdoctor scan` y, si el usuario acepta, lanza `--fix --ai`.
 
 ## Flujo típico (ejemplo end-to-end)
 
 1. Usuario: "audita el módulo app del proyecto".
 2. Invocar `mobiai graph context "android audit module app"` primero — MobiAI Graph da la lista de archivos relevantes.
-3. Sobre esos archivos: `adkd scan --diff main --json`.
+3. Sobre esos archivos: `kdoctor scan --diff main --json`.
 4. Parsear JSON: extraer `findings[]` ordenados por severidad.
-5. Si `healthScore` baja: proponer al usuario `adkd fix --ai --mode interactive`.
+5. Si `healthScore` baja: proponer al usuario `kdoctor fix --ai --mode interactive`.
 6. Tras cada fix: re-scan, mostrar delta de score.
 ```
 
@@ -1914,20 +1914,20 @@ Una vez instalado `mobiai skills install adkd`, este subcomando corre `adkd scan
 
 ```json
 {
-  "name": "adkd",
-  "displayName": "adkd (Android Doctor)",
+  "name": "kdoctor",
+  "displayName": "kdoctor (Android Doctor)",
   "description": "Static analysis + AI auto-fix Health Score for Android/KMP/CMP.",
   "version": "0.1.0",
-  "author": "adkd contributors",
+  "author": "kdoctor contributors",
   "license": "MIT",
-  "homepage": "https://github.com/adkd/adkd",
-  "repository": "github.com/adkd/adkd",
+  "homepage": "https://github.com/kdoctor/kdoctor",
+  "repository": "github.com/kdoctor/kdoctor",
   "commands": [
-    { "name": "scan",  "binary": "adkd",  "args": ["scan"]  },
-    { "name": "fix",   "binary": "adkd",  "args": ["fix"]   },
-    { "name": "init",  "binary": "adkd",  "args": ["init"]  },
-    { "name": "hook",  "binary": "adkd",  "args": ["hook"]  },
-    { "name": "doctor","binary": "adkd",  "args": ["doctor"] }
+    { "name": "scan",  "binary": "kdoctor",  "args": ["scan"]  },
+    { "name": "fix",   "binary": "kdoctor",  "args": ["fix"]   },
+    { "name": "init",  "binary": "kdoctor",  "args": ["init"]  },
+    { "name": "hook",  "binary": "kdoctor",  "args": ["hook"]  },
+    { "name": "doctor","binary": "kdoctor",  "args": ["doctor"] }
   ],
   "skills": ["./SKILL.md"],
   "hooks": [],
@@ -1940,9 +1940,9 @@ Una vez instalado `mobiai skills install adkd`, este subcomando corre `adkd scan
 **Files:**
 - Create: `plugin.json`
 
-Schema MobiAI: name=adkd, version, depends_on=[], commands=[scan, fix, init, doctor, hook].
+Schema MobiAI: name=kdoctor, version, depends_on=[], commands=[scan, fix, init, doctor, hook].
 
-### Task 4.3 — `adkd scan --mobiai` output
+### Task 4.3 — `kdoctor scan --mobiai` output
 
 **Files:**
 - Modify: `internal/cli/scan.go`
@@ -1954,14 +1954,14 @@ Cuando flag `--mobiai`, vuelca findings como anotaciones compatibles con MobiAI 
 **Files:**
 - Create: `docs/integrations/mobiai.md`
 
-Documentar el wiring con MobiAI (no se modifica MobiAI). El usuario de MobiAI ejecuta `mobiai skills add adkd` y obtiene el binario como skill.
+Documentar el wiring con MobiAI (no se modifica MobiAI). El usuario de MobiAI ejecuta `mobiai skills add kdoctor` y obtiene el binario como skill.
 
 ### Task 4.5 — Test de integración contra MobiAI en CI
 
 **Files:**
 - Create: `.github/workflows/mobiai-install-test.yml`
 
-Instala `mobiai` (versión latest stable), clona fixtures, verifica que `adkd scan --mobiai` produce el JSON correcto.
+Instala `mobiai` (versión latest stable), clona fixtures, verifica que `kdoctor scan --mobiai` produce el JSON correcto.
 
 ---
 
@@ -1983,7 +1983,7 @@ Invocar un jar Kotlin compilable vía `java -jar` que use `FirAdditionalCheckers
 **Files:**
 - Create: `docs/architecture/decisions/0007-k2-fir-strategy.md` (ADR)
 
-Basado en Task 5.1, decidir si adkd crece una capa JVM o si se mantiene en Go puro confiando en Detekt SARIF para el análisis profundo.
+Basado en Task 5.1, decidir si kdoctor crece una capa JVM o si se mantiene en Go puro confiando en Detekt SARIF para el análisis profundo.
 
 ### Task 5.3 — Si JVM: 1 check piloto (`compose-remember-missing`)
 
@@ -2027,7 +2027,7 @@ Sellar la decisión en `docs/architecture/decisions/0007-k2-fir-strategy.md`.
 - **`test-driven-development`** — se cargará en cada Task de implementación.
 - **`verification-before-completion`** — antes de cerrar cada Task.
 - **`brainstorming`** — si rebotamos en una decisión de diseño (ej. K2 spike).
-- **`skill-creator`** — si quieres exportar `adkd` como skill completo para que Codebuff lo use en otros proyectos.
+- **`skill-creator`** — si quieres exportar `kdoctor` como skill completo para que Codebuff lo use en otros proyectos.
 - **`mcp-builder`** — si decides exponer Graph como MCP server a futuro (lo menciono como follow-up, no es necesario ahora).
 
 **Plugins Go:**
@@ -2038,11 +2038,11 @@ Sellar la decisión en `docs/architecture/decisions/0007-k2-fir-strategy.md`.
 
 ## Verificación end-to-end (Definition of Done global)
 
-`adkd scan --type=android` en `examples/bad-project` produce Health Score ∈ [40,75] y contiene `dead-unused-import` en findings. `adkd scan --type=android` en `examples/good-project` produce Health Score ∈ [95,100].
+`kdoctor scan --type=android` en `examples/bad-project` produce Health Score ∈ [40,75] y contiene `dead-unused-import` en findings. `kdoctor scan --type=android` en `examples/good-project` produce Health Score ∈ [95,100].
 
-`adkd fix --ai --dry-run` en `examples/bad-project` produce un `fixes.md` con al menos 1 finding corregido propuesto. `--auto` aplica + valida con patch guard.
+`kdoctor fix --ai --dry-run` en `examples/bad-project` produce un `fixes.md` con al menos 1 finding corregido propuesto. `--auto` aplica + valida con patch guard.
 
-`mobiai skills add adkd` instala y `mobiai doctor --code` corre `adkd scan`.
+`mobiai skills add kdoctor` instala y `mobiai doctor --code` corre `kdoctor scan`.
 
 CI pasa: tests, `go vet`, `golangci-lint`, build cross-platform.
 
@@ -2058,11 +2058,11 @@ CI pasa: tests, `go vet`, `golangci-lint`, build cross-platform.
 
 ## Handoff para ejecutar
 
-**Plan completo y guardado en `docs/superpowers/plans/2026-07-19-adkd-implementation-plan.md`.**
+**Plan completo y guardado en `docs/superpowers/plans/2026-07-19-kdoctor-implementation-plan.md`.**
 
 Dos rutas de ejecución posibles cuando arranquemos:
 
 1. **Subagent-Driven (recomendada)** — Lanzo un subagente fresco por cada Task, revisión entre Tasks, iteración rápida. Carga de skills: `subagent-driven-development`.
 2. **Inline Execution** — Ejecuto las Tasks en esta misma sesión con checkpoints. Carga de skills: `executing-plans`.
 
-Cuando me digas cuál prefieres y arranquemos, llevo a cabo Fase 1 completa (12 Tasks) y validamos el primer `adkd scan` end-to-end contra `examples/bad-project` antes de pasar a Fase 2.
+Cuando me digas cuál prefieres y arranquemos, llevo a cabo Fase 1 completa (12 Tasks) y validamos el primer `kdoctor scan` end-to-end contra `examples/bad-project` antes de pasar a Fase 2.
