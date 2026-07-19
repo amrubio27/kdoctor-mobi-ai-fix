@@ -1,16 +1,14 @@
 package detektrunner
 
 import (
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
 func TestIsValidSARIFAccepts21(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "ok.sarif")
-	if err := writeFileRaw(path, []byte(`{"version":"2.1.0","runs":[]}`)); err != nil {
+	if err := writeFileString(path, `{"version":"2.1.0","runs":[]}`); err != nil {
 		t.Fatal(err)
 	}
 	if !isValidSARIF(path) {
@@ -21,7 +19,7 @@ func TestIsValidSARIFAccepts21(t *testing.T) {
 func TestIsValidSARIFRejectsOldVersion(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "old.sarif")
-	if err := writeFileRaw(path, []byte(`{"version":"2.0.0","runs":[]}`)); err != nil {
+	if err := writeFileString(path, `{"version":"2.0.0","runs":[]}`); err != nil {
 		t.Fatal(err)
 	}
 	if isValidSARIF(path) {
@@ -32,7 +30,7 @@ func TestIsValidSARIFRejectsOldVersion(t *testing.T) {
 func TestIsValidSARIFRejectsRandomFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "data.sarif")
-	if err := writeFileRaw(path, []byte(`{"some":"other tool's data"}`)); err != nil {
+	if err := writeFileString(path, `{"some":"other tool's data"}`); err != nil {
 		t.Fatal(err)
 	}
 	if isValidSARIF(path) {
@@ -43,7 +41,7 @@ func TestIsValidSARIFRejectsRandomFile(t *testing.T) {
 func TestIsValidSARIFRejectsEmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "empty.sarif")
-	if err := writeFileRaw(path, []byte{}); err != nil {
+	if err := writeFileString(path, ""); err != nil {
 		t.Fatal(err)
 	}
 	if isValidSARIF(path) {
@@ -59,10 +57,10 @@ func TestIsValidSARIFRejectsMissingFile(t *testing.T) {
 
 func TestIsDetektSARIFPath(t *testing.T) {
 	cases := map[string]bool{
-		"/Users/foo/proj/build/reports/detekt/adkd.sarif":                       true,
-		"/Users/foo/proj/app/build/reports/detekt/adkd.sarif":                   true,
-		"/Users/foo/proj/somewhere/random/file.sarif":                           false,
-		"/Users/foo/proj/build/something-else/detekt/out.sarif":                 false,
+		"/Users/foo/proj/build/reports/detekt/adkd.sarif":     true,
+		"/Users/foo/proj/app/build/reports/detekt/adkd.sarif": true,
+		"/Users/foo/proj/somewhere/random/file.sarif":         false,
+		"/Users/foo/proj/build/something-else/detekt/out.sarif": false,
 	}
 	for input, want := range cases {
 		if got := isDetektSARIFPath(input); got != want {
@@ -78,10 +76,10 @@ func TestFindProducedSARIFSkipsNonSARIFDotSarif(t *testing.T) {
 		t.Fatal(err)
 	}
 	// ficheros renombrados a .sarif pero no son SARIF 2.1.0
-	if err := writeFileRaw(filepath.Join(multi, "fake.sarif"), []byte(`{"some":"other"}`)); err != nil {
+	if err := writeFileString(filepath.Join(multi, "fake.sarif"), `{"some":"other"}`); err != nil {
 		t.Fatal(err)
 	}
-	if err := writeFileRaw(filepath.Join(multi, "real.sarif"), []byte(`{"version":"2.1.0","runs":[]}`)); err != nil {
+	if err := writeFileString(filepath.Join(multi, "real.sarif"), `{"version":"2.1.0","runs":[]}`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -91,13 +89,3 @@ func TestFindProducedSARIFSkipsNonSARIFDotSarif(t *testing.T) {
 		t.Fatalf("expected detector SARIF real %q, got %q (debe ignorar fake.sarif)", want, got)
 	}
 }
-
-// writeFileRaw helper (no es _test.go para no interferir con testhelpers_test.go).
-func writeFileRaw(path string, data []byte) error {
-	if err := mkdirAll(filepath.Dir(path)); err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0644)
-}
-
-var _ = strings.HasSuffix // mantener import usado arriba

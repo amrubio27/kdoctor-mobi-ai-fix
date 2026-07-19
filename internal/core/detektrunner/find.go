@@ -1,7 +1,6 @@
 package detektrunner
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,10 +22,9 @@ import (
 // que pueden contener miles de archivos irrelevantes para SARIF.
 //
 // TODO (Fase 2 optimization): la walk recursiva es lineal y puede
-// ser lenta en monorepos de 50K+ archivos. Mitigación: decir que
-// Go's filepath.Glob no soporta `**`, por lo que se necesita WalkDir.
-// Optimizar con depth-limit (e.g. max 5 niveles por módulo) si hace
-// falta.
+// ser lenta en monorepos de 50K+ archivos. filepath.Glob no soporta
+// `**` así que se necesita WalkDir. Optimizar con depth-limit (e.g.
+// max 5 niveles por módulo) si hace falta.
 //
 // TODO (Fase 2 logging): en modo --verbose, loggear cuántos entries
 // se inspeccionaron y los perm errors encontrados (hoy silenciados).
@@ -36,7 +34,7 @@ func findProducedSARIF(projectDir string) string {
 		return ""
 	}
 
-	var preferred, preferredSrc, fallback, fallbackSrc string
+	var preferred, fallback string
 	_ = filepath.WalkDir(abs, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return nil // TODO Fase 2: --verbose log
@@ -59,24 +57,18 @@ func findProducedSARIF(projectDir string) string {
 		normalized := filepath.ToSlash(path)
 		if strings.Contains(normalized, "/build/reports/detekt/") {
 			preferred = path
-			preferredSrc = "detekt-build/reports"
 			return filepath.SkipAll
 		}
 		if fallback == "" {
 			fallback = path
-			fallbackSrc = "fallback"
 		}
 		return nil
 	})
 
-	switch {
-	case preferred != "":
+	if preferred != "" {
 		return preferred
-	default:
-		_ = preferredSrc
-		_ = fallbackSrc
-		return fallback
 	}
+	return fallback
 }
 
 // isValidSARIF abre las primeras 512 bytes del archivo y valida que
@@ -104,6 +96,3 @@ func isDetektSARIFPath(path string) bool {
 	normalized := filepath.ToSlash(path)
 	return strings.Contains(normalized, "/build/reports/detekt/")
 }
-
-// String-formateado para logs.
-var _ = fmt.Sprintf // mantener import por si Fase 2 se mete --verbose
