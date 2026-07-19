@@ -8,13 +8,27 @@
 # Triggers: push to main, PR targeting main.
 # Runtime: ~2-3 minutes on ubuntu-latest cold cache; <60s with cache.
 
-name: CI Fast Gate
+name: CI Fast Gate# Round-3 #9.1 polish: paths-ignore filter prevents the gate from running
+# on pure-docs pushes (HANDOVER.md, dashboard docs/*, etc.) saving ~2-3min
+# CI minutes per push. CI still runs on any .go / .mod / .sum / .yml change
+# (paths filter is `paths-ignore` so default = match all).
 
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "CHANGELOG.md"
   pull_request:
     branches: ["main"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "CHANGELOG.md"
+
+
+
 
 # Cancel any in-progress run for the same branch if a new commit lands.
 concurrency:

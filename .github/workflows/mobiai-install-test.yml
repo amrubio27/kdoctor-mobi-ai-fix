@@ -3,8 +3,21 @@ name: MobiAI Integration Test
 on:
   push:
     branches: [ "main" ]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "CHANGELOG.md"
+      - "examples/**"
   pull_request:
     branches: [ "main" ]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "CHANGELOG.md"
+      - "examples/**"
+
+
+
 
 jobs:
   mobiai-test:
@@ -20,19 +33,26 @@ jobs:
       - name: Build kdoctor
         run: go build -o kdoctor cmd/kdoctor/main.go
         
-      # Install mobiai mock/cli for testing
+      # Install mobiai mock/cli for testing.
+      # Round-3 #9.1 polish: pinned to mobiai@^1.0.0 (semver range) instead of
+      # @latest. Avoids supply-chain risk where a compromised mobiai release
+      # auto-installs into CI. If a newer minor is needed, bump the version
+      # below explicitly and audit the change.
       - name: Install MobiAI
         run: |
-          npm install -g mobiai@latest || echo "MobiAI not strictly needed if we mock it, but testing the flow."
+          set -euo pipefail
+          npm install -g 'mobiai@^1.0.0'
 
       - name: Run kdoctor scan --mobiai on bad-project
         run: |
-          ./kdoctor scan --mobiai --project-dir examples/bad-project || true
+          set -euo pipefail
+          ./kdoctor scan --mobiai --project-dir examples/bad-project
           
       - name: Verify findings.jsonl is created
         run: |
+          set -euo pipefail
           if [ ! -f "examples/bad-project/.mobiai/graph/findings.jsonl" ]; then
-            echo "Error: findings.jsonl was not generated."
+            echo "::error::findings.jsonl was not generated."
             exit 1
           fi
           
@@ -40,6 +60,6 @@ jobs:
           count=$(wc -l < examples/bad-project/.mobiai/graph/findings.jsonl)
           echo "Generated $count findings for MobiAI Graph."
           if [ "$count" -lt "1" ]; then
-            echo "Error: expected at least 1 finding in JSONL."
+            echo "::error::expected at least 1 finding in JSONL, got $count."
             exit 1
           fi
