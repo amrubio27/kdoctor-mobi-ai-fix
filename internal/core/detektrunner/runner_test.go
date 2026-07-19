@@ -1,6 +1,7 @@
 package detektrunner
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )

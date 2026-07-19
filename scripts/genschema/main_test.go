@@ -38,23 +38,31 @@ func TestCatalogConvergence(t *testing.T) {
 			onDiskByID[id] = r
 		}
 	}
+	// helper: lee un campo string tolerando clave ausente (nil) por omitempty.
+	strField := func(m map[string]any, key string) string {
+		if v, ok := m[key].(string); ok {
+			return v
+		}
+		return ""
+	}
+
 	for _, gen := range CatalogRules {
 		disk, ok := onDiskByID[gen.ID]
 		if !ok {
 			t.Errorf("regla %s falta en disco", gen.ID)
 			continue
 		}
-		if disk["severity"] != gen.Severity {
-			t.Errorf("%s: severity disco=%q gen=%q", gen.ID, disk["severity"], gen.Severity)
+		if strField(disk, "severity") != gen.Severity {
+			t.Errorf("%s: severity disco=%q gen=%q", gen.ID, strField(disk, "severity"), gen.Severity)
 		}
-		if disk["cluster"] != gen.Cluster {
-			t.Errorf("%s: cluster disco=%q gen=%q", gen.ID, disk["cluster"], gen.Cluster)
+		if strField(disk, "cluster") != gen.Cluster {
+			t.Errorf("%s: cluster disco=%q gen=%q", gen.ID, strField(disk, "cluster"), gen.Cluster)
 		}
-		if disk["detektRule"] != gen.DetektRule {
-			t.Errorf("%s: detektRule disco=%q gen=%q", gen.ID, disk["detektRule"], gen.DetektRule)
+		if strField(disk, "detektRule") != gen.DetektRule {
+			t.Errorf("%s: detektRule disco=%q gen=%q", gen.ID, strField(disk, "detektRule"), gen.DetektRule)
 		}
-		if disk["status"] != gen.Status {
-			t.Errorf("%s: status disco=%q gen=%q", gen.ID, disk["status"], gen.Status)
+		if strField(disk, "status") != gen.Status {
+			t.Errorf("%s: status disco=%q gen=%q", gen.ID, strField(disk, "status"), gen.Status)
 		}
 	}
 
