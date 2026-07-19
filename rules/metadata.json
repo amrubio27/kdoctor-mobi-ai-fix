@@ -3,7 +3,8 @@
     "id": "compose-missing-key",
     "cluster": "compose-performance",
     "severity": "error",
-    "status": "planned"
+    "status": "live",
+    "fixHint": "Define a unique key for each item in the list using the key parameter."
   },
   {
     "id": "compose-unstable-params",
@@ -97,7 +98,8 @@
     "id": "coroutine-dispatchers-hardcoded",
     "cluster": "coroutines",
     "severity": "info",
-    "status": "planned"
+    "status": "live",
+    "fixHint": "Inject dispatchers through the constructor to allow overriding them in tests."
   },
   {
     "id": "coroutine-supervisor-missing",
@@ -333,13 +335,15 @@
     "id": "sec-log-pii",
     "cluster": "security",
     "severity": "error",
-    "status": "planned"
+    "status": "live",
+    "fixHint": "Do not log PII (emails, passwords, tokens, etc.). Remove or mask the logged data."
   },
   {
     "id": "sec-webview-javascript-enabled",
     "cluster": "security",
     "severity": "error",
-    "status": "planned"
+    "status": "live",
+    "fixHint": "Do not enable JavaScript in WebView unless absolutely necessary and secure."
   },
   {
     "id": "sec-deeplink-no-validation",

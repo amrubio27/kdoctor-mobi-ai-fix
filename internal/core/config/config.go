@@ -21,9 +21,10 @@ type RuleConf struct {
 }
 
 type Config struct {
-	ProjectType string                       `yaml:"projectType"`
-	Paths       map[string][]string          `yaml:"paths"`
-	Rules       map[string]string            `yaml:"rules"` // ruleID -> severity
+	ProjectType string              `yaml:"projectType"`
+	Paths       map[string][]string `yaml:"paths"`
+	Excludes    []string            `yaml:"excludes,omitempty"`
+	Rules       map[string]string   `yaml:"rules"` // ruleID or clusterID -> severity ("off" disables)
 	Score       struct {
 		FailBelow int `yaml:"failBelow"`
 	} `yaml:"score"`

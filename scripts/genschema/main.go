@@ -40,7 +40,7 @@ type Rule struct {
 //	go run ./scripts/genschema -out rules/metadata.json
 var CatalogRules = []Rule{
 	// 5.1 Compose Performance (12)
-	{ID: "compose-missing-key", Cluster: "compose-performance", Severity: "error", Status: "planned"},
+	{ID: "compose-missing-key", Cluster: "compose-performance", Severity: "error", Status: "live", FixHint: "Define a unique key for each item in the list using the key parameter."},
 	{ID: "compose-unstable-params", Cluster: "compose-performance", Severity: "error", Status: "planned"},
 	{ID: "compose-derived-state-missing", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-lambda-recomposition", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
@@ -55,7 +55,7 @@ var CatalogRules = []Rule{
 	// 5.2 Coroutines & Async (8)
 	{ID: "coroutine-viewmodel-scope", Cluster: "coroutines", Severity: "error", Status: "planned"},
 	{ID: "coroutine-global-scope", Cluster: "coroutines", Severity: "error", DetektRule: "GlobalCoroutineUsage", Status: "live", FixHint: "Use injected CoroutineScope (e.g., viewModelScope)."},
-	{ID: "coroutine-dispatchers-hardcoded", Cluster: "coroutines", Severity: "info", Status: "planned"},
+	{ID: "coroutine-dispatchers-hardcoded", Cluster: "coroutines", Severity: "info", Status: "live", FixHint: "Inject dispatchers through the constructor to allow overriding them in tests."},
 	{ID: "coroutine-supervisor-missing", Cluster: "coroutines", Severity: "warning", Status: "planned"},
 	{ID: "coroutine-unstructured-concurrency", Cluster: "coroutines", Severity: "warning", Status: "planned"},
 	{ID: "coroutine-cancellation-leak", Cluster: "coroutines", Severity: "error", DetektRule: "CoroutineCancellation", Status: "live", FixHint: "Don't swallow CancellationException in runCatching; rethrow."},
@@ -105,8 +105,8 @@ var CatalogRules = []Rule{
 	// basta agregar el stanza en examples/bad-project/detekt.yml sin tocar
 	// el catalog. El rulemap con prefix-strip ya tolera prefijos vendors.
 	{ID: "sec-hardcoded-secret", Cluster: "security", Severity: "error", DetektRule: "HardcodedPassword", Status: "live", FixHint: "Move secret to BuildConfig or environment variable."},
-	{ID: "sec-log-pii", Cluster: "security", Severity: "error", Status: "planned"},
-	{ID: "sec-webview-javascript-enabled", Cluster: "security", Severity: "error", Status: "planned"},
+	{ID: "sec-log-pii", Cluster: "security", Severity: "error", Status: "live", FixHint: "Do not log PII (emails, passwords, tokens, etc.). Remove or mask the logged data."},
+	{ID: "sec-webview-javascript-enabled", Cluster: "security", Severity: "error", Status: "live", FixHint: "Do not enable JavaScript in WebView unless absolutely necessary and secure."},
 	{ID: "sec-deeplink-no-validation", Cluster: "security", Severity: "warning", Status: "planned"},
 	{ID: "sec-fragment-injection", Cluster: "security", Severity: "error", Status: "planned"},
 	// 5.9 KMP / CMP (4)

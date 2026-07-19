@@ -18,7 +18,10 @@ func NewDoctorCmd() *cobra.Command {
 			fmt.Fprintln(out, "kdoctor doctor")
 			fmt.Fprintln(out, "===========")
 			fmt.Fprintf(out, "  Go version runtime: %s\n", runtime.Version())
-			checks := []struct{ name string; bin string }{
+			checks := []struct {
+				name string
+				bin  string
+			}{
 				{"detekt", "detekt"},
 				{"java (for gradle)", "java"},
 				{"gradle wrapper (project)", "./gradlew"}, // checked per-project

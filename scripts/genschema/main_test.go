@@ -121,8 +121,20 @@ func TestLiveRulesHaveDetektMapping(t *testing.T) {
 	data, _ := os.ReadFile(files[0])
 	var rules []map[string]any
 	_ = json.Unmarshal(data, &rules)
+
+	nativeGoRules := map[string]bool{
+		"compose-missing-key":             true,
+		"coroutine-dispatchers-hardcoded": true,
+		"sec-log-pii":                     true,
+		"sec-webview-javascript-enabled":  true,
+	}
+
 	for _, r := range rules {
 		if r["status"] == "live" {
+			id, _ := r["id"].(string)
+			if nativeGoRules[id] {
+				continue
+			}
 			if _, ok := r["detektRule"]; !ok {
 				t.Errorf("rule %s status=live but missing detektRule", r["id"])
 			}

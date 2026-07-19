@@ -59,8 +59,8 @@ func TestIsDetektSARIFPath(t *testing.T) {
 	cases := map[string]bool{
 		"/Users/foo/proj/build/reports/detekt/kdoctor.sarif":     true,
 		"/Users/foo/proj/app/build/reports/detekt/kdoctor.sarif": true,
-		"/Users/foo/proj/somewhere/random/file.sarif":         false,
-		"/Users/foo/proj/build/something-else/detekt/out.sarif": false,
+		"/Users/foo/proj/somewhere/random/file.sarif":            false,
+		"/Users/foo/proj/build/something-else/detekt/out.sarif":  false,
 	}
 	for input, want := range cases {
 		if got := isDetektSARIFPath(input); got != want {
