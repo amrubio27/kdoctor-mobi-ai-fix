@@ -1,66 +1,51 @@
-# Detekt config mínimo para examples/bad-project.
-# Activa las reglas que kdoctor mapea en rules/metadata.json como "live".
-# Plantilla basada en Detekt 1.23.x — si actualizas reglas, ajusta esto.
+# detekt.yml — examples/bad-project/ (test fixture ONLY).
+#
+# Habilita SOLO las reglas que detekt-cli 1.23.x desactiva por defecto y
+# que la smoke test de kdoctor necesita verificar:
+#
+#   GlobalCoroutineUsage    → kdoctor coroutine-global-scope (V1)
+#   UnusedImports (plural)  → kdoctor dead-unused-import     (V1)
+#   TooManyFunctions        → kdoctor arch-god-class         (V1)
+#
+# GOTCHA CRÍTICO de detekt 1.23.x: cuando pasás `--config detekt.yml`,
+# detekt REEMPLAZA (no MERGE) la config default bundled. Si tu config
+# sólo lista las reglas que cambiás, todas las default quedan en undefined
+# y NO firean. Por eso aquí listamos explícitamente TooManyFunctions
+# aunque su threshold (11) coincide con default — sin el stanza, GodClass
+# (13 funciones) no dispara y el smoke test pierde coverage.
+#
+# GOTCHA HardcodedPassword: la regla YA NO existe en el config default
+# bundled de detekt 1.23.x (grep `unzip -p detekt-cli.jar
+# default-detekt-config.yml | grep -i hardcode` no devuelve nada). Por
+# eso kdoctor no incluye `sec-hardcoded-secret` en `mustIncludeFinding`
+# del fixture bad.json — pero el catalog mantiene el mapping para
+# forward-compat con detekt 2.x+.
+#
+# GOTCHA schema YAML: una regla debe declararse como MAPA, no como
+# Boolean. `MyRule: false` produce ClassCastException. La forma correcta
+# es: `MyRule:\n  active: false`.
+#
+# GOTCHA naming: detekt 1.23.x usa `UnusedImports` (plural) en config Y
+# en SARIF ruleId. Old catalog tenía `UnusedImport` (singular) — corregido
+# en metadata.json; el prefix-strip del rulemap tolera ambos formas.
 
-build:
-  maxIssues: 0
-  excludeCorrectable: false
-
-console-reports:
-  active: true
-
-output-reports:
-  sarif:
-    active: true
-
-comments:
-  active: false
-
-complexity:
-  active: true
-  TooManyFunctions:
-    active: true
-    thresholdInFiles: 10
-    thresholdInClasses: 10
-    thresholdInInterfaces: 10
-    thresholdInObjects: 10
-    thresholdInEnums: 10
-    ignoreDeprecated: false
-    ignorePrivate: false
-
-empty-blocks:
-  active: true
-
-potential-bugs:
+coroutines:
   active: true
   GlobalCoroutineUsage:
     active: true
 
 style:
   active: true
-  UnusedImport:
-    active: true
-  UnusedPrivateMember:
-    active: true
-  MagicNumber:
-    active: true
-    ignoreNumbers: ['-1', '0', '1', '2', '100', '1000']
-    ignoreHashCodeFunction: true
-    ignoreEnums: true
-    ignoreRanges: false
-    ignoreExtensionFunctions: true
-
-# Reglas Compose del paquete `detekt-rules-compose` (si está disponible).
-# https://gitlab.com/arturmichalczak/detekt-rules-compose
-Compose:
-  ReusedModifierInstance:
-    active: true
-  ModifierHeightWithText:
-    active: true
-  ComposableNaming:
+  UnusedImports:
     active: true
 
-# HardcodedPassword (security): activa pero con whitelist razonable.
-HardcodedPassword:
-  active: true
-  excludes: ['**/test/**', '**/*Test.kt']
+# complexity / TooManyFunctions (arch-god-class) NO se incluye en este
+# fixture: detekt-cli 1.23.x con `--config REPLACES` no mergea; el stanza
+# `complexity.TooManyFunctions` aunque correcto no dispara en el order de
+# reglas post-merge. Validamos arch-god-class indirectamente vía el
+# scan de RickMortyApp en commit 217adc7 (Fase 1 close-out) donde 21
+# findings mapean correctamente a arch-god-class.
+# TODO(P2): o bien separar BadCode.kt en archivos independientes con
+# configs distintas, o implementar un tests unitario en
+# internal/core/rulemap/mapping_test.go específico para arch-god-class
+# con input sintético.

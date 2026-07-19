@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -90,13 +91,22 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	// 2. Detectar modo y correr Detekt.
 	mode := detektrunner.Detect(wd, f.preferStandalone)
 	sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt.sarif")
-	out := cmd.OutOrStdout()
+	// Cuando emitimos formato estructurado (--json / --sarif), el writer del
+	// detekt subprocess debe ser io.Discard para no contaminar la salida con
+	// líneas tipo "WARNING: sun.misc.Unsafe..." del JVM. En modo consola sí
+	// queremos reenviar la salida de detekt al usuario (feedback durante scan).
+	var detektOut io.Writer
+	if f.asJSON || f.asSARIF {
+		detektOut = io.Discard
+	} else {
+		detektOut = cmd.OutOrStdout()
+	}
 	if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
 		ProjectDir:     wd,
 		SARIFOutput:    sarifPath,
 		UseStandalone:  mode == detektrunner.ModeStandalone,
 		StandalonePath: f.detektBin,
-		Stdout:         out,
+		Stdout:         detektOut,
 	}); err != nil {
 		return fmt.Errorf("detekt: %w", err)
 	}

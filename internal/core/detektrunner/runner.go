@@ -66,18 +66,38 @@ func runStandalone(ctx context.Context, opts Options) (string, error) {
 	if bin == "" {
 		bin = "detekt"
 	}
+	// Resuelve opts.ProjectDir a path absoluto. Sin esto, cuando el usuario
+	// pasa --project-dir <ruta_relativa> (e.g. "examples/bad-project"),
+	// cmd.Dir también es relativo y detekt interpreta --input relativo a
+	// cmd.Dir — termina buscando <cwd>/<relative>/<relative> (no existe) y
+	// falla con exit 1 sin escribir SARIF. Trap diagnosticado en Fase 2.
+	absProjectDir, err := filepath.Abs(opts.ProjectDir)
+	if err != nil {
+		return "", fmt.Errorf("abs path for projectDir: %w", err)
+	}
 	excludesCSV := strings.Join(defaultExcludes, ",")
 	// Crítico: limpia cualquier SARIF stale de runs previos. Sin esto,
 	// el safety net acepta el archivo anterior aunque detekt haya fallado.
 	_ = os.Remove(opts.SARIFOutput)
 	args := []string{
-		"--input", opts.ProjectDir,
+		"--input", absProjectDir,
 		"--report", "sarif:" + opts.SARIFOutput,
 		"--max-issues", fmt.Sprintf("%d", defaultMaxIssues),
 		"--excludes", excludesCSV,
 	}
+	// Si el proyecto provee su propio detekt.yml (o detekt.yaml) en la raíz,
+	// lo pasamos con --config. Permite al usuario (o a los test fixtures)
+	// habilitar reglas que detekt-cli desactiva por defecto (HardcodedPassword,
+	// GlobalCoroutineUsage, UnusedImport, etc.).
+	for _, name := range []string{"detekt.yml", "detekt.yaml"} {
+		candidate := filepath.Join(absProjectDir, name)
+		if cfg, err := os.Stat(candidate); err == nil && !cfg.IsDir() {
+			args = append(args, "--config", candidate)
+			break
+		}
+	}
 	cmd := exec.CommandContext(ctx, bin, args...)
-	cmd.Dir = opts.ProjectDir
+	cmd.Dir = absProjectDir
 	out := opts.Stdout
 	if out == nil {
 		out = io.Discard
@@ -96,11 +116,16 @@ func runStandalone(ctx context.Context, opts Options) (string, error) {
 }
 
 func runGradlew(ctx context.Context, opts Options) (string, error) {
-	gradlew := filepath.Join(opts.ProjectDir, "gradlew")
-	if _, err := os.Stat(gradlew); err != nil {
-		return "", fmt.Errorf("gradlew no encontrado en %s: %w", opts.ProjectDir, err)
+	// Mismo fix de path absoluto que runStandalone.
+	absProjectDir, err := filepath.Abs(opts.ProjectDir)
+	if err != nil {
+		return "", fmt.Errorf("abs path for projectDir: %w", err)
 	}
-	initPath, err := WriteInitScript(opts.ProjectDir)
+	gradlew := filepath.Join(absProjectDir, "gradlew")
+	if _, err := os.Stat(gradlew); err != nil {
+		return "", fmt.Errorf("gradlew no encontrado en %s: %w", absProjectDir, err)
+	}
+	initPath, err := WriteInitScript(absProjectDir)
 	if err != nil {
 		return "", fmt.Errorf("escribir init-script: %w", err)
 	}
@@ -109,7 +134,7 @@ func runGradlew(ctx context.Context, opts Options) (string, error) {
 
 	args := []string{"detekt", "--init-script", initPath}
 	cmd := exec.CommandContext(ctx, gradlew, args...)
-	cmd.Dir = opts.ProjectDir
+	cmd.Dir = absProjectDir
 	out := opts.Stdout
 	if out == nil {
 		out = io.Discard
@@ -121,7 +146,7 @@ func runGradlew(ctx context.Context, opts Options) (string, error) {
 	// SARIF Gradle plugin escribe típicamente a build/reports/detekt/kdoctor.sarif.
 	// En multi-modulo (`:app`, `:core`, ...) puede aparecer en
 	// <ProjectDir>/<module>/build/... Por eso hacemos find recursivo.
-	if produced := findProducedSARIF(opts.ProjectDir); produced != "" {
+	if produced := findProducedSARIF(absProjectDir); produced != "" {
 		// Mover/copiar al target SARIFOutput para que el parser
 		// tenga un único path de entrada. (En Fase 2 simplificamos.)
 		if err := copyFile(produced, opts.SARIFOutput); err != nil {
@@ -129,7 +154,7 @@ func runGradlew(ctx context.Context, opts Options) (string, error) {
 		}
 		return opts.SARIFOutput, nil
 	}
-	return opts.SARIFOutput, fmt.Errorf("no se encontró SARIF en %s/build/reports/detekt/ (multi-mod OK, revisado)", opts.ProjectDir)
+	return opts.SARIFOutput, fmt.Errorf("no se encontró SARIF en %s/build/reports/detekt/ (multi-mod OK, revisado)", absProjectDir)
 }
 
 func copyFile(src, dst string) error {

@@ -98,6 +98,12 @@ var CatalogRules = []Rule{
 	{ID: "test-runblocking-in-test", Cluster: "testing", Severity: "warning", Status: "planned"},
 	{ID: "test-compose-test-rule-missing", Cluster: "testing", Severity: "warning", Status: "planned"},
 	// 5.8 Security (5)
+	// sec-hardcoded-secret: status="live" pero NO smoke-tested en detekt-cli
+	// 1.23.x (HardcodedPassword no existe en default-detekt-config.yml
+	// bundled — verifiqué con grep en /tmp/default-detekt-config.yml).
+	// Forward-compat: si detekt 2.x reintroduce/renombre la regla,
+	// basta agregar el stanza en examples/bad-project/detekt.yml sin tocar
+	// el catalog. El rulemap con prefix-strip ya tolera prefijos vendors.
 	{ID: "sec-hardcoded-secret", Cluster: "security", Severity: "error", DetektRule: "HardcodedPassword", Status: "live", FixHint: "Move secret to BuildConfig or environment variable."},
 	{ID: "sec-log-pii", Cluster: "security", Severity: "error", Status: "planned"},
 	{ID: "sec-webview-javascript-enabled", Cluster: "security", Severity: "error", Status: "planned"},
@@ -109,7 +115,11 @@ var CatalogRules = []Rule{
 	{ID: "kmp-coroutines-supervisor-in-common", Cluster: "kmp", Severity: "warning", Status: "planned"},
 	{ID: "kmp-compose-multiplatform-stable-required", Cluster: "kmp", Severity: "warning", Status: "planned"},
 	// 5.10 Dead code (4)
-	{ID: "dead-unused-import", Cluster: "dead-code", Severity: "info", DetektRule: "UnusedImport", Status: "live", FixHint: "Remove the import."},
+	// dead-unused-import: detekt 1.23.x usa `UnusedImports` (plural) en
+	// SARIF ruleId (`detekt.style.UnusedImports`) y tambien en config YAML.
+	// El catalog historicamente tenía `UnusedImport` (singular) que fallaba
+	// el lookup; corregido a plural para coincidir con el bundle bundled.
+	{ID: "dead-unused-import", Cluster: "dead-code", Severity: "info", DetektRule: "UnusedImports", Status: "live", FixHint: "Remove the import."},
 	{ID: "dead-unused-private-fun", Cluster: "dead-code", Severity: "info", DetektRule: "UnusedPrivateMember", Status: "live", FixHint: "Remove unused private declaration."},
 	{ID: "dead-unused-parameter", Cluster: "dead-code", Severity: "warning", Status: "planned"},
 	{ID: "dead-white-label-export", Cluster: "dead-code", Severity: "info", Status: "planned"},

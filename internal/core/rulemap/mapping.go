@@ -2,6 +2,7 @@ package rulemap
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/adkd/adkd/internal/core/types"
 )
@@ -28,10 +29,18 @@ func BuildIndex(rules []types.Rule) *Index {
 // Map enriquece cada Finding con id/cluster/severity/fixHint del catálogo.
 // Devuelve una NUEVA lista; el input queda intacto. Las reglas sin matchear
 // quedan con id="unmapped:<rule>" y cluster="unknown".
+//
+// Detekt 1.23.x SARIF outputs qualified ruleIds como "detekt.complexity.TooManyFunctions".
+// El catálogo solo guarda el nombre corto ("TooManyFunctions"). Normalizamos
+// queryID quitando cualquier prefijo "<vendor>.<ruleset>." antes del lookup.
 func (idx *Index) Map(findings []types.Finding) []types.Finding {
 	out := make([]types.Finding, 0, len(findings))
 	for _, f := range findings {
-		if r, ok := idx.byDetekt[f.Rule]; ok {
+		queryID := f.Rule
+		if lastDot := strings.LastIndex(queryID, "."); lastDot != -1 {
+			queryID = queryID[lastDot+1:]
+		}
+		if r, ok := idx.byDetekt[queryID]; ok {
 			f.ID = r.ID
 			f.Cluster = r.Cluster
 			f.Severity = r.Severity

@@ -381,7 +381,7 @@
     "id": "dead-unused-import",
     "cluster": "dead-code",
     "severity": "info",
-    "detektRule": "UnusedImport",
+    "detektRule": "UnusedImports",
     "status": "live",
     "fixHint": "Remove the import."
   },

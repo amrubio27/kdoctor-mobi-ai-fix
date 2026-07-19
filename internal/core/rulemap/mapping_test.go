@@ -7,6 +7,48 @@ import (
 	"github.com/adkd/adkd/internal/core/types"
 )
 
+// TestMapPrefixStrip regression-guard: detekt SARIF outputs qualified ruleIds
+// como `detekt.style.UnusedImports` pero el catálogo guarda `UnusedImports`.
+// Sin el strip del prefijo "detekt.<ruleset>." antes del lookup, ningún
+// finding con prefix vendor/ruleset mapearía. Este test asegura que el strip
+// se mantenga incluso cuando alguien reorganice la función Map.
+func TestMapPrefixStrip(t *testing.T) {
+	rules := []types.Rule{
+		{ID: "dead-unused-import", Cluster: "dead-code", Severity: types.SeverityInfo,
+			DetektRule: "UnusedImports", Status: "live"},
+		{ID: "arch-god-class", Cluster: "architecture", Severity: types.SeverityWarning,
+			DetektRule: "TooManyFunctions", Status: "live"},
+	}
+	idx := BuildIndex(rules)
+	in := []types.Finding{
+		{Rule: "detekt.style.UnusedImports", Message: "import not used"},
+		{Rule: "detekt.complexity.TooManyFunctions", Message: "too many methods"},
+		{Rule: "detekt.empty.EmptyFunctionBlock.NonExistent", Message: "should remain unmapped"},
+	}
+	out := idx.Map(in)
+	if out[0].ID != "dead-unused-import" {
+		t.Errorf("style.UnusedImports should map to dead-unused-import, got %q", out[0].ID)
+	}
+	if out[1].ID != "arch-god-class" {
+		t.Errorf("complexity.TooManyFunctions should map to arch-god-class, got %q", out[1].ID)
+	}
+	if out[2].ID != "unmapped:detekt.empty.EmptyFunctionBlock.NonExistent" {
+		t.Errorf("unknown rule should preserve original prefix in unmapped:, got %q", out[2].ID)
+	}
+	// Casos borde: empty rule ID no debe crashear; regla sin prefijo
+	// (sin dot) también debe matchear; string que es sólo un punto también.
+	edge := idx.Map([]types.Finding{{Rule: ""}, {Rule: "TooManyFunctions"}, {Rule: "."}})
+	if edge[0].ID != "unmapped:" {
+		t.Errorf("empty rule ID should produce unmapped:, got %q", edge[0].ID)
+	}
+	if edge[1].ID != "arch-god-class" {
+		t.Errorf("rule without prefix should still map, got %q", edge[1].ID)
+	}
+	if edge[2].ID != "unmapped:." {
+		t.Errorf("trailing-dot rule should preserve original, got %q", edge[2].ID)
+	}
+}
+
 func TestLoadRulesFromFixture(t *testing.T) {
 	rules, err := LoadRules("testdata/metadata-sample.json")
 	if err != nil {
@@ -73,7 +115,7 @@ func TestMapStableOrderByLocation(t *testing.T) {
 		t.Fatalf("expected a.kt:3 first, got %s:%d", out[0].File, out[0].Line)
 	}
 	if out[2].File != "b.kt" {
-		t.Fatalf("expected b.kt last, got %s:%d", out[2].File, out[2].Line)
+		t.Fatalf("expected b.kt last, got %s", out[2].File)
 	}
 }
 
