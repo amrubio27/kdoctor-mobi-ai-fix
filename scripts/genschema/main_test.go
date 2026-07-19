@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -82,7 +84,7 @@ func TestCatalogConvergence(t *testing.T) {
 	}
 }
 
-func TestGeneratedCatalogHas64Rules(t *testing.T) {
+func TestGeneratedCatalogHas78Rules(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join("..", "..", "rules", "metadata.json"))
 	if err != nil {
 		t.Fatalf("glob: %v", err)
@@ -98,8 +100,8 @@ func TestGeneratedCatalogHas64Rules(t *testing.T) {
 	if err := json.Unmarshal(data, &rules); err != nil {
 		t.Fatal(err)
 	}
-	if len(rules) != 64 {
-		t.Fatalf("expected 64 rules, got %d", len(rules))
+	if len(rules) != 78 {
+		t.Fatalf("expected 78 rules, got %d", len(rules))
 	}
 	required := []string{"id", "cluster", "severity", "status"}
 	for i, r := range rules {
@@ -129,7 +131,79 @@ func TestLiveRulesHaveDetektMapping(t *testing.T) {
 }
 
 func TestCatalogRulesCountSanity(t *testing.T) {
-	if len(CatalogRules) != 64 {
-		t.Fatalf("CatalogRules debe tener 64 entries; tiene %d", len(CatalogRules))
+	if len(CatalogRules) != 78 {
+		t.Fatalf("CatalogRules debe tener 78 entries (64 V1 + 14 default detekt); tiene %d", len(CatalogRules))
+	}
+}
+
+// validPrefixes mapea cada cluster kdoctor a los prefijos válidos de ID. V1
+// usa abreviaciones (mem-*, arch-*, a11y-*, etc.); 5.11+ usa nombres completos
+// (complexity-*, error-handling-*, etc.). Esto evita tener que renombrar V1
+// sólo por consistencia, pero hace cumplir el invariante a futuro:
+//
+//	Para cualquier regla r ∈ CatalogRules:
+//	  ∃ prefix ∈ validPrefixes[r.Cluster] : strings.HasPrefix(r.ID, prefix + "-")
+//
+// Cluster NO registrado en validPrefixes = FAIL loudante (es nuevo y el
+// contributor debe añadir el prefijo válido).
+var validPrefixes = map[string][]string{
+	// V1 abreviaciones
+	"compose-performance": {"compose"},
+	"coroutines":          {"coroutine"},
+	"lifecycle":           {"lifecycle"},
+	"memory":              {"mem"},
+	"architecture":        {"arch"},
+	"accessibility":       {"a11y"},
+	"testing":             {"test"},
+	"security":            {"sec"},
+	"kmp":                 {"kmp"},
+	"dead-code":           {"dead"},
+	// 5.11 nombres completos
+	"complexity":     {"complexity"},
+	"error-handling": {"error-handling"},
+	"magic-numbers":  {"magic-numbers"},
+	"naming":         {"naming"},
+	"formatting":     {"formatting"},
+} // validatePrefix comprueba que rule.ID empieza por uno de los prefijos válidos
+// registrados para rule.Cluster en validPrefixes. Devuelve un error formateado
+// (sin tipo dedicado — Fase 1 no discrimina errores por categoría, y plegar a
+// fmt.Errorf reduce el código 12 líneas sin perder mensaje diagnóstico).
+func validatePrefix(rule Rule) error {
+	prefixes, ok := validPrefixes[rule.Cluster]
+	if !ok {
+		return fmt.Errorf("rule %s (cluster=%s): cluster no registrado en validPrefixes. Hint: añádelo al map arriba", rule.ID, rule.Cluster)
+	}
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(rule.ID, prefix+"-") {
+			return nil
+		}
+	}
+	return fmt.Errorf("rule %s (cluster=%s): ID no comienza por ningún prefijo válido. Hint: usa uno de [%s] seguido de '-'", rule.ID, rule.Cluster, strings.Join(prefixes, ", "))
+}
+
+// TestClusterTaxonomyIsConsistent itera TODAS las reglas del catálogo (no
+// sólo 5.11) y verifica la convención de nombres. Esto previene la regresión
+// del bug original (prefijo `style-*` cuando el cluster-Canónico era
+// `complexity`) para cualquier futura adición.
+func TestClusterTaxonomyIsConsistent(t *testing.T) {
+	for _, r := range CatalogRules {
+		if err := validatePrefix(r); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+// TestValidPrefixesCoverage es un meta-guardrail: si añades un NUEVO cluster
+// a CatalogRules, tienes que añadirlo también a validPrefixes. Si no, este
+// test falla con un mensaje claro.
+func TestValidPrefixesCoverage(t *testing.T) {
+	seen := map[string]bool{}
+	for _, r := range CatalogRules {
+		seen[r.Cluster] = true
+	}
+	for cluster := range seen {
+		if _, ok := validPrefixes[cluster]; !ok {
+			t.Errorf("cluster %q aparece en CatalogRules pero no está en validPrefixes. Hint: añade el cluster y sus prefijos válidos al map.", cluster)
+		}
 	}
 }

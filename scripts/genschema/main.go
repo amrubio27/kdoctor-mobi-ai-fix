@@ -1,11 +1,22 @@
-// Package genschema vuelca el catálogo de 64 reglas a rules/metadata.json.
+// Package genschema vuelca el catálogo de 78 reglas a rules/metadata.json.
 //
 // Uso: go run ./scripts/genschema
 //
-// CatalogRules es la fuente canónica de las 64 reglas V1. La exportación
-// a JSON se hace en main(); el JSON vive en rules/metadata.json que es lo
-// que consumen los binarios. El test TestCatalogConvergence en main_test.go
+// CatalogRules es la fuente canónica de las 64 reglas V1 más 14 default
+// detekt mappings añadidas en Phase 1.5 (78 total). La exportación a JSON
+// se hace en main(); el JSON vive en rules/metadata.json que es lo que
+// consumen los binarios. El test TestCatalogConvergence en main_test.go
 // verifica que el JSON en disco coincide con CatalogRules.
+//
+// Convenciones de Naming (Phase 1.5 v3):
+//   - ID = `{cluster-prefix}-{descriptor}`. V1 usa abreviaciones (mem-*,
+//     arch-*, a11y-*, sec-*, test-*, dead-*). 5.11 usa nombres completos
+//     (complexity-*, error-handling-*, magic-numbers-*, naming-*,
+//     formatting-*). El test TestClusterTaxonomyIsConsistent valida esta
+//     convención contra todas las reglas (no solo 5.11).
+//   - FixHint = string accionable. V1 las tiene casi todas; en Phase 1.5 v3
+//     añadimos FixHints también para 5.11 para que el reporte JSON incluya
+//     remediation advice.
 package main
 
 import (
@@ -24,10 +35,9 @@ type Rule struct {
 	FixHint    string `json:"fixHint,omitempty"`
 }
 
-// CatalogRules es el catálogo canónico. El catálogo V1 está en
-// docs/rules/ANDROID_DOCTOR_FIX_AI.md sección 5 (64 reglas).
-// Si añades una regla aquí, ejecuta:
-//   go run ./scripts/genschema -out rules/metadata.json
+// CatalogRules es el catálogo canónico. Si añades una regla aquí, ejecuta:
+//
+//	go run ./scripts/genschema -out rules/metadata.json
 var CatalogRules = []Rule{
 	// 5.1 Compose Performance (12)
 	{ID: "compose-missing-key", Cluster: "compose-performance", Severity: "error", Status: "planned"},
@@ -35,20 +45,20 @@ var CatalogRules = []Rule{
 	{ID: "compose-derived-state-missing", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-lambda-recomposition", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-heavy-composable", Cluster: "compose-performance", Severity: "info", Status: "planned"},
-	{ID: "compose-remember-missing", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:ReusedModifierInstance", Status: "live"},
-	{ID: "compose-state-hoisting", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ModifierHeightWithText", Status: "live"},
-	{ID: "compose-modifier-frequent-changes", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ReusedModifierInstance", Status: "live"},
+	{ID: "compose-remember-missing", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:ReusedModifierInstance", Status: "live", FixHint: "Wrap mutable state in remember { mutableStateOf(...) }."},
+	{ID: "compose-state-hoisting", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ModifierHeightWithText", Status: "live", FixHint: "Move state up and receive callbacks down."},
+	{ID: "compose-modifier-frequent-changes", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ReusedModifierInstance", Status: "live", FixHint: "Hoist the Modifier to a parameter or remember it."},
 	{ID: "compose-graphics-layer", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-list-animated", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-side-effect-in-compose", Cluster: "compose-performance", Severity: "error", Status: "planned"},
-	{ID: "compose-runtime-import-bleeding", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:ComposableNaming", Status: "live"},
+	{ID: "compose-runtime-import-bleeding", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:ComposableNaming", Status: "live", FixHint: "Don't import compose.runtime.* outside @Composable functions."},
 	// 5.2 Coroutines & Async (8)
 	{ID: "coroutine-viewmodel-scope", Cluster: "coroutines", Severity: "error", Status: "planned"},
-	{ID: "coroutine-global-scope", Cluster: "coroutines", Severity: "error", DetektRule: "GlobalCoroutineUsage", Status: "live"},
+	{ID: "coroutine-global-scope", Cluster: "coroutines", Severity: "error", DetektRule: "GlobalCoroutineUsage", Status: "live", FixHint: "Use injected CoroutineScope (e.g., viewModelScope)."},
 	{ID: "coroutine-dispatchers-hardcoded", Cluster: "coroutines", Severity: "info", Status: "planned"},
 	{ID: "coroutine-supervisor-missing", Cluster: "coroutines", Severity: "warning", Status: "planned"},
 	{ID: "coroutine-unstructured-concurrency", Cluster: "coroutines", Severity: "warning", Status: "planned"},
-	{ID: "coroutine-cancellation-leak", Cluster: "coroutines", Severity: "error", DetektRule: "CoroutineCancellation", Status: "live"},
+	{ID: "coroutine-cancellation-leak", Cluster: "coroutines", Severity: "error", DetektRule: "CoroutineCancellation", Status: "live", FixHint: "Don't swallow CancellationException in runCatching; rethrow."},
 	{ID: "coroutine-flow-buffer-missing", Cluster: "coroutines", Severity: "warning", Status: "planned"},
 	{ID: "coroutine-sharedflow-replay", Cluster: "coroutines", Severity: "info", Status: "planned"},
 	// 5.3 Lifecycle (6)
@@ -65,14 +75,14 @@ var CatalogRules = []Rule{
 	{ID: "mem-handler-leak", Cluster: "memory", Severity: "warning", Status: "planned"},
 	{ID: "mem-coroutine-job-leak", Cluster: "memory", Severity: "error", Status: "planned"},
 	// 5.5 Architecture (10)
-	{ID: "arch-god-class", Cluster: "architecture", Severity: "warning", DetektRule: "TooManyFunctions", Status: "live"},
+	{ID: "arch-god-class", Cluster: "architecture", Severity: "warning", DetektRule: "TooManyFunctions", Status: "live", FixHint: "Split class by responsibility."},
 	{ID: "arch-circular-dep", Cluster: "architecture", Severity: "error", Status: "planned"},
 	{ID: "arch-feature-module-public-api-bleed", Cluster: "architecture", Severity: "warning", Status: "planned"},
 	{ID: "arch-public-api-mutable-state", Cluster: "architecture", Severity: "error", Status: "planned"},
 	{ID: "arch-data-class-with-logic", Cluster: "architecture", Severity: "warning", Status: "planned"},
 	{ID: "arch-named-arg-required", Cluster: "architecture", Severity: "info", Status: "planned"},
 	{ID: "arch-utility-function-should-be-extension", Cluster: "architecture", Severity: "info", Status: "planned"},
-	{ID: "arch-internal-in-public-api", Cluster: "architecture", Severity: "error", DetektRule: "InvalidPackageDeclaration", Status: "live"},
+	{ID: "arch-internal-in-public-api", Cluster: "architecture", Severity: "error", DetektRule: "InvalidPackageDeclaration", Status: "live", FixHint: "Do not expose internal types in public API."},
 	{ID: "arch-package-cycles-kmp", Cluster: "architecture", Severity: "error", Status: "planned"},
 	{ID: "arch-presentation-depends-on-data", Cluster: "architecture", Severity: "error", Status: "planned"},
 	// 5.6 Accessibility (5)
@@ -88,7 +98,7 @@ var CatalogRules = []Rule{
 	{ID: "test-runblocking-in-test", Cluster: "testing", Severity: "warning", Status: "planned"},
 	{ID: "test-compose-test-rule-missing", Cluster: "testing", Severity: "warning", Status: "planned"},
 	// 5.8 Security (5)
-	{ID: "sec-hardcoded-secret", Cluster: "security", Severity: "error", DetektRule: "HardcodedPassword", Status: "live"},
+	{ID: "sec-hardcoded-secret", Cluster: "security", Severity: "error", DetektRule: "HardcodedPassword", Status: "live", FixHint: "Move secret to BuildConfig or environment variable."},
 	{ID: "sec-log-pii", Cluster: "security", Severity: "error", Status: "planned"},
 	{ID: "sec-webview-javascript-enabled", Cluster: "security", Severity: "error", Status: "planned"},
 	{ID: "sec-deeplink-no-validation", Cluster: "security", Severity: "warning", Status: "planned"},
@@ -99,18 +109,45 @@ var CatalogRules = []Rule{
 	{ID: "kmp-coroutines-supervisor-in-common", Cluster: "kmp", Severity: "warning", Status: "planned"},
 	{ID: "kmp-compose-multiplatform-stable-required", Cluster: "kmp", Severity: "warning", Status: "planned"},
 	// 5.10 Dead code (4)
-	{ID: "dead-unused-import", Cluster: "dead-code", Severity: "info", DetektRule: "UnusedImport", Status: "live"},
-	{ID: "dead-unused-private-fun", Cluster: "dead-code", Severity: "info", DetektRule: "UnusedPrivateMember", Status: "live"},
+	{ID: "dead-unused-import", Cluster: "dead-code", Severity: "info", DetektRule: "UnusedImport", Status: "live", FixHint: "Remove the import."},
+	{ID: "dead-unused-private-fun", Cluster: "dead-code", Severity: "info", DetektRule: "UnusedPrivateMember", Status: "live", FixHint: "Remove unused private declaration."},
 	{ID: "dead-unused-parameter", Cluster: "dead-code", Severity: "warning", Status: "planned"},
 	{ID: "dead-white-label-export", Cluster: "dead-code", Severity: "info", Status: "planned"},
+
+	// 5.11 Default detekt mappings (14) — Phase 1.5.
+	// Mapeo de reglas estilo/naming/complexity que detekt-cli emite por
+	// defecto, para que el scan no devuelva findings en cluster=[unknown].
+	// IDs siguen convención `{cluster-prefix}-*` (validada por
+	// TestClusterTaxonomyIsConsistent).
+	// Nuevos clusters: complexity, error-handling, magic-numbers, naming,
+	// formatting.
+	// 5.11.1 complexity (4)
+	{ID: "complexity-long-method", Cluster: "complexity", Severity: "warning", DetektRule: "LongMethod", Status: "live", FixHint: "Break the function into smaller helpers by responsibility."},
+	{ID: "complexity-long-parameter-list", Cluster: "complexity", Severity: "warning", DetektRule: "LongParameterList", Status: "live", FixHint: "Introduce a parameter object (e.g., ConstructorParams data class) or builder pattern."},
+	{ID: "complexity-large-class", Cluster: "complexity", Severity: "warning", DetektRule: "LargeClass", Status: "live", FixHint: "Split class by Single Responsibility Principle."},
+	{ID: "complexity-cyclomatic-complex-method", Cluster: "complexity", Severity: "warning", DetektRule: "CyclomaticComplexMethod", Status: "live", FixHint: "Reduce branches via guard clauses, polymorphism or strategy pattern."},
+	// 5.11.2 error-handling (2)
+	{ID: "error-handling-generic-exception-caught", Cluster: "error-handling", Severity: "warning", DetektRule: "TooGenericExceptionCaught", Status: "live", FixHint: "Catch specific exceptions (e.g., IOException, TimeoutException) instead of Exception/Throwable."},
+	{ID: "error-handling-throws-count", Cluster: "error-handling", Severity: "warning", DetektRule: "ThrowsCount", Status: "live", FixHint: "Reduce throws via Result/Either types or wrap into a domain exception."},
+	// 5.11.3 magic-numbers (1)
+	{ID: "magic-numbers-literal", Cluster: "magic-numbers", Severity: "info", DetektRule: "MagicNumber", Status: "live", FixHint: "Replace with a named constant (private const val MAX_RETRIES = 3)."},
+	// 5.11.4 naming (5)
+	{ID: "naming-function-convention", Cluster: "naming", Severity: "warning", DetektRule: "FunctionNaming", Status: "live", FixHint: "Composable: PascalCase. Helper functions: lowerCamelCase. Avoid snake_case."},
+	{ID: "naming-class-convention", Cluster: "naming", Severity: "info", DetektRule: "ClassNaming", Status: "live", FixHint: "Class names must be PascalCase (e.g., UserRepository not userRepository)."},
+	{ID: "naming-variable-convention", Cluster: "naming", Severity: "info", DetektRule: "VariableNaming", Status: "live", FixHint: "Variables must be lowerCamelCase (e.g., userName not UserName)."},
+	{ID: "naming-constructor-parameter-convention", Cluster: "naming", Severity: "info", DetektRule: "ConstructorParameterNaming", Status: "live", FixHint: "Constructor parameters begin lowercase and may use underscores (e.g., private val id)."},
+	{ID: "naming-matching-declaration-name", Cluster: "naming", Severity: "warning", DetektRule: "MatchingDeclarationName", Status: "live", FixHint: "File name must match the top-level declaration (e.g., UserRepository.kt contains class UserRepository)."},
+	// 5.11.5 formatting (2)
+	{ID: "formatting-newline-at-eof", Cluster: "formatting", Severity: "info", DetektRule: "NewLineAtEndOfFile", Status: "live", FixHint: "Add a trailing newline at EOF."},
+	{ID: "formatting-max-line-length", Cluster: "formatting", Severity: "warning", DetektRule: "MaxLineLength", Status: "live", FixHint: "Break the line below 120 chars (default detekt threshold)."},
 }
 
 func main() {
 	out := flag.String("out", "rules/metadata.json", "output path for the generated metadata.json")
 	flag.Parse()
 
-	if len(CatalogRules) != 64 {
-		fmt.Fprintf(os.Stderr, "ERROR: expected 64 rules, got %d\n", len(CatalogRules))
+	if len(CatalogRules) != 78 {
+		fmt.Fprintf(os.Stderr, "ERROR: expected 78 rules (64 V1 + 14 default detekt), got %d\n", len(CatalogRules))
 		os.Exit(1)
 	}
 

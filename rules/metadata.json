@@ -3,8 +3,7 @@
     "id": "compose-missing-key",
     "cluster": "compose-performance",
     "severity": "error",
-    "status": "planned",
-    "fixHint": "Provide a stable key in items() to skip recomposition."
+    "status": "planned"
   },
   {
     "id": "compose-unstable-params",
@@ -28,8 +27,7 @@
     "id": "compose-heavy-composable",
     "cluster": "compose-performance",
     "severity": "info",
-    "status": "planned",
-    "fixHint": "Split composables by visual responsibility (max ~250 lines)."
+    "status": "planned"
   },
   {
     "id": "compose-remember-missing",
@@ -406,5 +404,117 @@
     "cluster": "dead-code",
     "severity": "info",
     "status": "planned"
+  },
+  {
+    "id": "complexity-long-method",
+    "cluster": "complexity",
+    "severity": "warning",
+    "detektRule": "LongMethod",
+    "status": "live",
+    "fixHint": "Break the function into smaller helpers by responsibility."
+  },
+  {
+    "id": "complexity-long-parameter-list",
+    "cluster": "complexity",
+    "severity": "warning",
+    "detektRule": "LongParameterList",
+    "status": "live",
+    "fixHint": "Introduce a parameter object (e.g., ConstructorParams data class) or builder pattern."
+  },
+  {
+    "id": "complexity-large-class",
+    "cluster": "complexity",
+    "severity": "warning",
+    "detektRule": "LargeClass",
+    "status": "live",
+    "fixHint": "Split class by Single Responsibility Principle."
+  },
+  {
+    "id": "complexity-cyclomatic-complex-method",
+    "cluster": "complexity",
+    "severity": "warning",
+    "detektRule": "CyclomaticComplexMethod",
+    "status": "live",
+    "fixHint": "Reduce branches via guard clauses, polymorphism or strategy pattern."
+  },
+  {
+    "id": "error-handling-generic-exception-caught",
+    "cluster": "error-handling",
+    "severity": "warning",
+    "detektRule": "TooGenericExceptionCaught",
+    "status": "live",
+    "fixHint": "Catch specific exceptions (e.g., IOException, TimeoutException) instead of Exception/Throwable."
+  },
+  {
+    "id": "error-handling-throws-count",
+    "cluster": "error-handling",
+    "severity": "warning",
+    "detektRule": "ThrowsCount",
+    "status": "live",
+    "fixHint": "Reduce throws via Result/Either types or wrap into a domain exception."
+  },
+  {
+    "id": "magic-numbers-literal",
+    "cluster": "magic-numbers",
+    "severity": "info",
+    "detektRule": "MagicNumber",
+    "status": "live",
+    "fixHint": "Replace with a named constant (private const val MAX_RETRIES = 3)."
+  },
+  {
+    "id": "naming-function-convention",
+    "cluster": "naming",
+    "severity": "warning",
+    "detektRule": "FunctionNaming",
+    "status": "live",
+    "fixHint": "Composable: PascalCase. Helper functions: lowerCamelCase. Avoid snake_case."
+  },
+  {
+    "id": "naming-class-convention",
+    "cluster": "naming",
+    "severity": "info",
+    "detektRule": "ClassNaming",
+    "status": "live",
+    "fixHint": "Class names must be PascalCase (e.g., UserRepository not userRepository)."
+  },
+  {
+    "id": "naming-variable-convention",
+    "cluster": "naming",
+    "severity": "info",
+    "detektRule": "VariableNaming",
+    "status": "live",
+    "fixHint": "Variables must be lowerCamelCase (e.g., userName not UserName)."
+  },
+  {
+    "id": "naming-constructor-parameter-convention",
+    "cluster": "naming",
+    "severity": "info",
+    "detektRule": "ConstructorParameterNaming",
+    "status": "live",
+    "fixHint": "Constructor parameters begin lowercase and may use underscores (e.g., private val id)."
+  },
+  {
+    "id": "naming-matching-declaration-name",
+    "cluster": "naming",
+    "severity": "warning",
+    "detektRule": "MatchingDeclarationName",
+    "status": "live",
+    "fixHint": "File name must match the top-level declaration (e.g., UserRepository.kt contains class UserRepository)."
+  },
+  {
+    "id": "formatting-newline-at-eof",
+    "cluster": "formatting",
+    "severity": "info",
+    "detektRule": "NewLineAtEndOfFile",
+    "status": "live",
+    "fixHint": "Add a trailing newline at EOF."
+  },
+  {
+    "id": "formatting-max-line-length",
+    "cluster": "formatting",
+    "severity": "warning",
+    "detektRule": "MaxLineLength",
+    "status": "live",
+    "fixHint": "Break the line below 120 chars (default detekt threshold)."
   }
 ]
