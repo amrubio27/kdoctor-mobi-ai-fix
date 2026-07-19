@@ -30,6 +30,8 @@ type scanFlags struct {
 	asSARIF          bool
 	projectType      string
 	preferStandalone bool
+	detektBin        string
+	projectDir       string
 	failBelow        int
 	outputPath       string
 }
@@ -46,8 +48,10 @@ Por defecto: rich console.
 --json     : JSON schema v3 (para CI / MobiAI Graph)
 --sarif    : SARIF 2.1.0 (para GitHub Code Scanning)
 --prefer-standalone : usa el binario ` + "`detekt`" + ` si está en PATH, no gradlew
---fail-below N     : exit code !=0 si score < N
---out path         : escribir a fichero en lugar de stdout`,
+--detekt-bin path   : ruta explícita al binario/cmd/jar de detekt (si no en PATH)
+--project-dir path  : directorio del proyecto a escanear (default: cwd)
+--fail-below N      : exit code !=0 si score < N
+--out path          : escribir a fichero en lugar de stdout`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runScan(cmd, f)
 		},
@@ -56,15 +60,21 @@ Por defecto: rich console.
 	cmd.Flags().BoolVar(&f.asSARIF, "sarif", false, "output SARIF 2.1.0 (GitHub Code Scanning)")
 	cmd.Flags().StringVar(&f.projectType, "type", "android", "project type: android|kmp|cmp")
 	cmd.Flags().BoolVar(&f.preferStandalone, "prefer-standalone", false, "use standalone detekt binary if available")
+	cmd.Flags().StringVar(&f.detektBin, "detekt-bin", "", "explicit path to detekt binary (overrides PATH lookup)")
+	cmd.Flags().StringVar(&f.projectDir, "project-dir", "", "project directory to scan (default: cwd)")
 	cmd.Flags().IntVar(&f.failBelow, "fail-below", 0, "non-zero exit code if health score is below this value")
 	cmd.Flags().StringVar(&f.outputPath, "out", "", "write report to file instead of stdout")
 	return cmd
 }
 
 func runScan(cmd *cobra.Command, f *scanFlags) error {
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getwd: %w", err)
+	wd := f.projectDir
+	if wd == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("getwd: %w", err)
+		}
+		wd = cwd
 	}
 
 	// 1. Cargar reglas (single source of truth).
@@ -82,10 +92,11 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt.sarif")
 	out := cmd.OutOrStdout()
 	if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
-		ProjectDir:    wd,
-		SARIFOutput:   sarifPath,
-		UseStandalone: mode == detektrunner.ModeStandalone,
-		Stdout:        out,
+		ProjectDir:     wd,
+		SARIFOutput:    sarifPath,
+		UseStandalone:  mode == detektrunner.ModeStandalone,
+		StandalonePath: f.detektBin,
+		Stdout:         out,
 	}); err != nil {
 		return fmt.Errorf("detekt: %w", err)
 	}

@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 type ExecutionMode string
@@ -25,11 +26,11 @@ const (
 )
 
 type Options struct {
-	ProjectDir    string
-	SARIFOutput   string
-	UseStandalone bool
+	ProjectDir     string
+	SARIFOutput    string
+	UseStandalone  bool
 	StandalonePath string
-	Stdout        io.Writer // opcional, spinners del CLI
+	Stdout         io.Writer // opcional, spinners del CLI
 }
 
 func RunDetekt(ctx context.Context, opts Options) (string, error) {
@@ -45,12 +46,36 @@ func RunDetekt(ctx context.Context, opts Options) (string, error) {
 	return runGradlew(ctx, opts)
 }
 
+// defaultMaxIssues fija un umbral alto para que detekt-cli salga con
+// exit code 0 tras reportar findings. Detekt retorna exit 2 cuando hay
+// issues; queremos esos findings en el SARIF, no fallar. Configurable
+// en Fase 2 desde kdoctor.config.yaml (e.g. failAbove=N real).
+const defaultMaxIssues = 99999
+
+// defaultExcludes son patrones glob que detekt salta. Generados Android/KMP
+// (build/, kspCaches/, .gradle/, Room migrations, etc.) crean ruido sin
+// valor para kdoctor. Robusto a Fase 2 cuando el usuario pueda override.
+var defaultExcludes = []string{
+	"**/build/**",
+	"**/.gradle/**",
+	"**/kspCaches/**",
+}
+
 func runStandalone(ctx context.Context, opts Options) (string, error) {
 	bin := opts.StandalonePath
 	if bin == "" {
 		bin = "detekt"
 	}
-	args := []string{"--input", opts.ProjectDir, "--report", "sarif:" + opts.SARIFOutput}
+	excludesCSV := strings.Join(defaultExcludes, ",")
+	// Crítico: limpia cualquier SARIF stale de runs previos. Sin esto,
+	// el safety net acepta el archivo anterior aunque detekt haya fallado.
+	_ = os.Remove(opts.SARIFOutput)
+	args := []string{
+		"--input", opts.ProjectDir,
+		"--report", "sarif:" + opts.SARIFOutput,
+		"--max-issues", fmt.Sprintf("%d", defaultMaxIssues),
+		"--excludes", excludesCSV,
+	}
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = opts.ProjectDir
 	out := opts.Stdout
@@ -59,6 +84,12 @@ func runStandalone(ctx context.Context, opts Options) (string, error) {
 	}
 	cmd.Stdout, cmd.Stderr = out, out
 	if err := cmd.Run(); err != nil {
+		// Safety net: si detekt escribió un SARIF fresco pese a exit != 0,
+		// algunos runtimes retornan non-zero incluso con findings legítimos.
+		// El SARIF es fresh porque acabamos de hacer Remove arriba.
+		if _, statErr := os.Stat(opts.SARIFOutput); statErr == nil {
+			return opts.SARIFOutput, nil
+		}
 		return "", fmt.Errorf("detekt standalone: %w", err)
 	}
 	return opts.SARIFOutput, nil
