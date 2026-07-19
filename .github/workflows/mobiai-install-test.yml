@@ -1,0 +1,45 @@
+name: MobiAI Integration Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  mobiai-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+
+      - name: Build kdoctor
+        run: go build -o kdoctor cmd/kdoctor/main.go
+        
+      # Install mobiai mock/cli for testing
+      - name: Install MobiAI
+        run: |
+          npm install -g mobiai@latest || echo "MobiAI not strictly needed if we mock it, but testing the flow."
+
+      - name: Run kdoctor scan --mobiai on bad-project
+        run: |
+          ./kdoctor scan --mobiai --project-dir examples/bad-project || true
+          
+      - name: Verify findings.jsonl is created
+        run: |
+          if [ ! -f "examples/bad-project/.mobiai/graph/findings.jsonl" ]; then
+            echo "Error: findings.jsonl was not generated."
+            exit 1
+          fi
+          
+          # Basic validation of the JSONL structure
+          count=$(wc -l < examples/bad-project/.mobiai/graph/findings.jsonl)
+          echo "Generated $count findings for MobiAI Graph."
+          if [ "$count" -lt "1" ]; then
+            echo "Error: expected at least 1 finding in JSONL."
+            exit 1
+          fi

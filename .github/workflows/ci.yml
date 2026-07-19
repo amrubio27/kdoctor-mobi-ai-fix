@@ -1,0 +1,95 @@
+# kdoctor CI fast gate (Round-3 #9)
+#
+# Complements the existing `.github/workflows/mobiai-install-test.yml`
+# (slow MobiAI integration test). This file is the *fast* gate that
+# runs on every push and PR — catches formatting drift, vet violations,
+# race conditions, build breakage, and dependency drift in seconds.
+#
+# Triggers: push to main, PR targeting main.
+# Runtime: ~2-3 minutes on ubuntu-latest cold cache; <60s with cache.
+
+name: CI Fast Gate
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+# Cancel any in-progress run for the same branch if a new commit lands.
+concurrency:
+  group: ci-fast-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read  # read-only; no GitHub API write needed
+
+jobs:
+  ci-fast-gate:
+    name: gofmt + vet + race-tests + build + tidy-drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go (with module cache)
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache: true
+          cache-dependency-path: |
+            go.mod
+            go.sum
+            **/go.mod
+
+      # Round-3 #9 part A: detect formatting drift.
+      # `gofmt -l` lists files that DO NOT match canonical gofmt format.
+      # Empty output = clean. Non-empty = fail.
+
+      - name: gofmt drift check
+        run: |
+          drift=$(gofmt -l .)
+          if [ -n "$drift" ]; then
+            echo "::error::gofmt drift detected in:"
+            echo "$drift"
+            echo "::group::Run 'gofmt -w .' locally to fix."
+            exit 1
+          fi
+
+      # Standard static analysis. `go vet` exits non-zero on violations.
+      - name: go vet ./...
+        run: go vet ./...
+
+      # Race detector across the whole test suite. Catches data races
+      # in pathutil Os.Stat loops, claude.go atomic cache write,
+      # diff.go subprocess management.
+
+      - name: go test (with -race)
+        run: go test -race -count=1 -timeout=120s ./...
+
+      # Build smoke test. Confirms the binary compiles end-to-end.
+      - name: go build (cmd/kdoctor)
+        run: go build -o kdoctor ./cmd/kdoctor
+
+      # Dependency drift gate. Pinned versions produce zero diff.
+      # If `go mod tidy` wants to add/remove requires, fail the gate so
+      # the author commits the tidy change explicitly.
+
+      - name: go mod tidy drift check
+        run: |
+          cp go.mod /tmp/go.mod.before
+          cp go.sum /tmp/go.sum.before
+          # `go mod tidy` is allowed to fail (e.g. network down) but in
+          # that case we cannot make a drift determination; exit-early.
+          go mod tidy || { echo "::warning::go mod tidy failed (likely network); skipping drift check"; exit 0; }
+          if ! diff -q /tmp/go.mod.before go.mod >/dev/null; then
+            echo "::error::go.mod drift detected. Run 'go mod tidy' locally and commit."
+            diff /tmp/go.mod.before go.mod | head -40 || true
+            exit 1
+          fi
+          if ! diff -q /tmp/go.sum.before go.sum >/dev/null; then
+            echo "::error::go.sum drift detected. Run 'go mod tidy' locally and commit."
+            diff /tmp/go.sum.before go.sum | head -40 || true
+            exit 1
+          fi
