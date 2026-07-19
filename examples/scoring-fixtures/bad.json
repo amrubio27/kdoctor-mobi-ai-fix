@@ -1,6 +1,13 @@
 {
   "projectPath": "examples/bad-project",
-  "minScoreExpected": 80,
-  "maxScoreExpected": 95,
-  "mustIncludeFinding": ["coroutine-global-scope", "dead-unused-import"]
+  "minScoreExpected": 75,
+  "maxScoreExpected": 90,
+  "mustIncludeFinding": [
+    "coroutine-global-scope",
+    "dead-unused-import",
+    "compose-missing-key",
+    "sec-log-pii",
+    "sec-webview-javascript-enabled",
+    "coroutine-dispatchers-hardcoded"
+  ]
 }
