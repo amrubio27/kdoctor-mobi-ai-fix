@@ -1,0 +1,32 @@
+# Binarios
+/adkd
+/adkd.exe
+/dist/
+*.exe
+
+# Go
+*.test
+*.out
+/vendor/
+
+# Trabajo local (Fase 1)
+/.tmp/
+/.mobiai/
+/.worktrees/
+
+# Detekt init-script y Gradle build (se regeneran)
+/adkd-detekt.init.gradle.kts
+/build/
+/.gradle/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Freebuff
+.freebuff/

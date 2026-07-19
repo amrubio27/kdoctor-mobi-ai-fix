@@ -1,0 +1,16 @@
+[
+  {
+    "id": "a",
+    "cluster": "x",
+    "severity": "warning",
+    "detektRule": "Compose:ReusedModifierInstance",
+    "status": "live",
+    "fixHint": "hoist"
+  },
+  {
+    "id": "b",
+    "cluster": "x",
+    "severity": "info",
+    "status": "planned"
+  }
+]

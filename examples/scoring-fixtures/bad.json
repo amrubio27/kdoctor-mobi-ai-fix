@@ -1,0 +1,6 @@
+{
+  "projectPath": "examples/bad-project",
+  "minScoreExpected": 40,
+  "maxScoreExpected": 80,
+  "mustIncludeFinding": ["coroutine-global-scope", "sec-hardcoded-secret", "dead-unused-import"]
+}

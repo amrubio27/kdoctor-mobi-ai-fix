@@ -1,0 +1,34 @@
+# adkd config — generado por `adkd init`. Editar libremente.
+
+# Tipo de proyecto. Usado para filtrar reglas contextuales (KMP vs CMP).
+projectType: android
+
+# Paths a analizar (globs). Si vacío, defaults sensatos.
+paths:
+  kotlin:
+    - "app/src/main/**/*.kt"
+    - "**/*.kt"
+  compose:
+    - "**/*Composable*.kt"
+
+# Reglas. Severidad por rule-id: "error" | "warning" | "info" | "off".
+# Las reglas no listadas usan la severidad del catálogo.
+rules:
+  # "compose-remember-missing": error
+  # "coroutine-global-scope": error
+  # "sec-hardcoded-secret": error
+
+# Quality gate. Si Health Score < failBelow, exit code !=0 en CI.
+score:
+  failBelow: 80
+
+# AI Fixer (Fase 3).
+aiFixer:
+  # Provider: auto | mobiai | claude | cursor | gemini | codex
+  # auto = detecta el primero instalado entre mobiai/claude/cursor/gemini/codex
+  provider: auto
+  # Mode: suggest | interactive | auto
+  # suggest  = genera fixes.md sin tocar código (default seguro)
+  # interactive = pregunta por cada fix
+  # auto = aplica todo y deja git diff listo
+  mode: suggest

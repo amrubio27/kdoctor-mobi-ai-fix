@@ -1,0 +1,66 @@
+# Detekt config mínimo para examples/bad-project.
+# Activa las reglas que adkd mapea en rules/metadata.json como "live".
+# Plantilla basada en Detekt 1.23.x — si actualizas reglas, ajusta esto.
+
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+
+console-reports:
+  active: true
+
+output-reports:
+  sarif:
+    active: true
+
+comments:
+  active: false
+
+complexity:
+  active: true
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 10
+    thresholdInClasses: 10
+    thresholdInInterfaces: 10
+    thresholdInObjects: 10
+    thresholdInEnums: 10
+    ignoreDeprecated: false
+    ignorePrivate: false
+
+empty-blocks:
+  active: true
+
+potential-bugs:
+  active: true
+  GlobalCoroutineUsage:
+    active: true
+
+style:
+  active: true
+  UnusedImport:
+    active: true
+  UnusedPrivateMember:
+    active: true
+  MagicNumber:
+    active: true
+    ignoreNumbers: ['-1', '0', '1', '2', '100', '1000']
+    ignoreHashCodeFunction: true
+    ignoreEnums: true
+    ignoreRanges: false
+    ignoreExtensionFunctions: true
+
+# Reglas Compose del paquete `detekt-rules-compose` (si está disponible).
+# https://gitlab.com/arturmichalczak/detekt-rules-compose
+Compose:
+  ReusedModifierInstance:
+    active: true
+  ModifierHeightWithText:
+    active: true
+  ComposableNaming:
+    active: true
+
+# HardcodedPassword (security): activa pero con whitelist razonable.
+HardcodedPassword:
+  active: true
+  excludes: ['**/test/**', '**/*Test.kt']

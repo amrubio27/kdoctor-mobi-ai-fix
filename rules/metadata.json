@@ -1,0 +1,410 @@
+[
+  {
+    "id": "compose-missing-key",
+    "cluster": "compose-performance",
+    "severity": "error",
+    "status": "planned",
+    "fixHint": "Provide a stable key in items() to skip recomposition."
+  },
+  {
+    "id": "compose-unstable-params",
+    "cluster": "compose-performance",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "compose-derived-state-missing",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "compose-lambda-recomposition",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "compose-heavy-composable",
+    "cluster": "compose-performance",
+    "severity": "info",
+    "status": "planned",
+    "fixHint": "Split composables by visual responsibility (max ~250 lines)."
+  },
+  {
+    "id": "compose-remember-missing",
+    "cluster": "compose-performance",
+    "severity": "error",
+    "detektRule": "Compose:ReusedModifierInstance",
+    "status": "live",
+    "fixHint": "Wrap mutable state in remember { mutableStateOf(...) }."
+  },
+  {
+    "id": "compose-state-hoisting",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "detektRule": "Compose:ModifierHeightWithText",
+    "status": "live",
+    "fixHint": "Move state up and receive callbacks down."
+  },
+  {
+    "id": "compose-modifier-frequent-changes",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "detektRule": "Compose:ReusedModifierInstance",
+    "status": "live",
+    "fixHint": "Hoist the Modifier to a parameter or remember it."
+  },
+  {
+    "id": "compose-graphics-layer",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "compose-list-animated",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "compose-side-effect-in-compose",
+    "cluster": "compose-performance",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "compose-runtime-import-bleeding",
+    "cluster": "compose-performance",
+    "severity": "error",
+    "detektRule": "Compose:ComposableNaming",
+    "status": "live",
+    "fixHint": "Don't import compose.runtime.* outside @Composable functions."
+  },
+  {
+    "id": "coroutine-viewmodel-scope",
+    "cluster": "coroutines",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "coroutine-global-scope",
+    "cluster": "coroutines",
+    "severity": "error",
+    "detektRule": "GlobalCoroutineUsage",
+    "status": "live",
+    "fixHint": "Use injected CoroutineScope (e.g., viewModelScope)."
+  },
+  {
+    "id": "coroutine-dispatchers-hardcoded",
+    "cluster": "coroutines",
+    "severity": "info",
+    "status": "planned"
+  },
+  {
+    "id": "coroutine-supervisor-missing",
+    "cluster": "coroutines",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "coroutine-unstructured-concurrency",
+    "cluster": "coroutines",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "coroutine-cancellation-leak",
+    "cluster": "coroutines",
+    "severity": "error",
+    "detektRule": "CoroutineCancellation",
+    "status": "live",
+    "fixHint": "Don't swallow CancellationException in runCatching; rethrow."
+  },
+  {
+    "id": "coroutine-flow-buffer-missing",
+    "cluster": "coroutines",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "coroutine-sharedflow-replay",
+    "cluster": "coroutines",
+    "severity": "info",
+    "status": "planned"
+  },
+  {
+    "id": "lifecycle-context-leak",
+    "cluster": "lifecycle",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "lifecycle-collect-as-state-missing",
+    "cluster": "lifecycle",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "lifecycle-collect-lifecycle-aware",
+    "cluster": "lifecycle",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "lifecycle-ondestroy-listener",
+    "cluster": "lifecycle",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "lifecycle-job-not-cancelled",
+    "cluster": "lifecycle",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "lifecycle-config-change-survival",
+    "cluster": "lifecycle",
+    "severity": "info",
+    "status": "planned"
+  },
+  {
+    "id": "mem-bitmap-no-pool",
+    "cluster": "memory",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "mem-context-receiver-leak",
+    "cluster": "memory",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "mem-static-context",
+    "cluster": "memory",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "mem-handler-leak",
+    "cluster": "memory",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "mem-coroutine-job-leak",
+    "cluster": "memory",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "arch-god-class",
+    "cluster": "architecture",
+    "severity": "warning",
+    "detektRule": "TooManyFunctions",
+    "status": "live",
+    "fixHint": "Split class by responsibility."
+  },
+  {
+    "id": "arch-circular-dep",
+    "cluster": "architecture",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "arch-feature-module-public-api-bleed",
+    "cluster": "architecture",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "arch-public-api-mutable-state",
+    "cluster": "architecture",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "arch-data-class-with-logic",
+    "cluster": "architecture",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "arch-named-arg-required",
+    "cluster": "architecture",
+    "severity": "info",
+    "status": "planned"
+  },
+  {
+    "id": "arch-utility-function-should-be-extension",
+    "cluster": "architecture",
+    "severity": "info",
+    "status": "planned"
+  },
+  {
+    "id": "arch-internal-in-public-api",
+    "cluster": "architecture",
+    "severity": "error",
+    "detektRule": "InvalidPackageDeclaration",
+    "status": "live",
+    "fixHint": "Do not expose internal types in public API."
+  },
+  {
+    "id": "arch-package-cycles-kmp",
+    "cluster": "architecture",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "arch-presentation-depends-on-data",
+    "cluster": "architecture",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "a11y-content-description",
+    "cluster": "accessibility",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "a11y-click-target-size",
+    "cluster": "accessibility",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "a11y-merged-clickable",
+    "cluster": "accessibility",
+    "severity": "info",
+    "status": "planned"
+  },
+  {
+    "id": "a11y-talkback-label-missing",
+    "cluster": "accessibility",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "a11y-color-contrast-note",
+    "cluster": "accessibility",
+    "severity": "info",
+    "status": "planned"
+  },
+  {
+    "id": "test-public-api-without-test",
+    "cluster": "testing",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "test-flaky-test-marker",
+    "cluster": "testing",
+    "severity": "info",
+    "status": "planned"
+  },
+  {
+    "id": "test-hilt-rule-missing",
+    "cluster": "testing",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "test-runblocking-in-test",
+    "cluster": "testing",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "test-compose-test-rule-missing",
+    "cluster": "testing",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "sec-hardcoded-secret",
+    "cluster": "security",
+    "severity": "error",
+    "detektRule": "HardcodedPassword",
+    "status": "live",
+    "fixHint": "Move secret to BuildConfig or environment variable."
+  },
+  {
+    "id": "sec-log-pii",
+    "cluster": "security",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "sec-webview-javascript-enabled",
+    "cluster": "security",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "sec-deeplink-no-validation",
+    "cluster": "security",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "sec-fragment-injection",
+    "cluster": "security",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "kmp-platform-api-leak",
+    "cluster": "kmp",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "kmp-expect-actual-violation",
+    "cluster": "kmp",
+    "severity": "error",
+    "status": "planned"
+  },
+  {
+    "id": "kmp-coroutines-supervisor-in-common",
+    "cluster": "kmp",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "kmp-compose-multiplatform-stable-required",
+    "cluster": "kmp",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "dead-unused-import",
+    "cluster": "dead-code",
+    "severity": "info",
+    "detektRule": "UnusedImport",
+    "status": "live",
+    "fixHint": "Remove the import."
+  },
+  {
+    "id": "dead-unused-private-fun",
+    "cluster": "dead-code",
+    "severity": "info",
+    "detektRule": "UnusedPrivateMember",
+    "status": "live",
+    "fixHint": "Remove unused private declaration."
+  },
+  {
+    "id": "dead-unused-parameter",
+    "cluster": "dead-code",
+    "severity": "warning",
+    "status": "planned"
+  },
+  {
+    "id": "dead-white-label-export",
+    "cluster": "dead-code",
+    "severity": "info",
+    "status": "planned"
+  }
+]

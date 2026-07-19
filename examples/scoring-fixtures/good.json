@@ -1,0 +1,6 @@
+{
+  "projectPath": "examples/good-project",
+  "minScoreExpected": 95,
+  "maxScoreExpected": 100,
+  "mustIncludeFinding": []
+}
