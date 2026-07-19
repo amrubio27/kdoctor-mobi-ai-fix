@@ -1,0 +1,68 @@
+# kdoctor.config.yaml — examples/bad-project/ (test fixture).
+#
+# Este archivo es un demo vivo de la feature **Tier 3#7** (overrides por
+# equipo). Sirve como regression-guard de los 3 code paths de
+# `internal/core/rulemap/mapping.go::ApplyOverrides`:
+#
+#   1. excludes         → filtra findings por path (globo manual `**`).
+#   2. cluster override → downcast de severidad para TODO un cluster.
+#   3. rule override    → override de severidad para una regla ID específica.
+#
+# Restricción crítica: NINGÚN override acá puede silenciar findings del
+# smoke test (cualquier `*: off` rompería `mustIncludeFinding` en
+# `examples/scoring-fixtures/bad.json`). Por eso los overrides de abajo
+# son downcast/downgrade inocuos: cambian peso en el score pero NO
+# filtran findings.
+#
+projectType: android
+
+paths:
+  kotlin:
+    - "**/*.kt"
+  compose:
+    - "**/*Composable*.kt"
+
+# Excludes: rutas que NUNCA entran al reporte. El `**` es un Contains-stub
+# que la round-2 tarea #5 reemplazará por un engine real de globs
+# (`bmatcuk/doublestar` o similar). En este fixture, el path no existe —
+# sirve como regression-guard de la rama `excludes` sin afectar el score.
+excludes:
+  - "**/Legacy.kt"
+
+rules:
+  # ────────────────────────────────────────────────────────────────
+  # Cluster-level override: el cluster `security` baja de error
+  # (catálogo default) a warning. NO dropea los findings del cluster
+  # (`ApplyOverrides` solo dropea con "off"/"disabled"/"none").
+  #
+  # Aplica a TODA regla futura con cluster=security. En este fixture,
+  # la ÚNICA regla del cluster `security` SIN rule-level override es
+  # `sec-webview-javascript-enabled`: ella baja de error→warning.
+  #
+  # IMPORTANTE: rule-level override GANA sobre cluster-level override.
+  # Ver bloque siguiente — `sec-log-pii: error` mantiene esa regla
+  # en error pese al cluster-level `security: warning` de arriba.
+  # Score efectivo: 82 (no 85, porque sólo 1 finding del cluster
+  # security realmente downcastea, no 2).
+  # ────────────────────────────────────────────────────────────────
+  security: warning
+
+  # ────────────────────────────────────────────────────────────────
+  # Rule-level override: `sec-log-pii` mantiene severidad `error`.
+  # ApplyOverrides tiene precedencia rule-override > cluster-override:
+  #
+  #   if sev, ok := overrides[f.ID]; ok { effectiveSeverity = sev }
+  #   else if sev, ok := overrides[f.Cluster]; ok { effectiveSeverity = sev }
+  #
+  # Por tanto sec-log-pii queda en error aunque el cluster diga warning.
+  # Como catálogo también dice "error", este override es semánticamente
+  # no-op, pero existe para ejercitar y regression-guard-ear la regla
+  # de precedencia. Si algún día alguien baja catálogo de sec-log-pii a
+  # warning, este override preserva el comportamiento sin tener que
+  # tocar el YAML.
+  #
+  # Tests que pin este contrato:
+  #   - TestApplyOverrides_RuleLevelWinsOverCluster
+  #   - TestApplyOverrides_ClusterWarningDowncast
+  # ────────────────────────────────────────────────────────────────
+  sec-log-pii: error

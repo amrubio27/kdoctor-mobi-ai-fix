@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "3",
+  "projectType": "android",
+  "healthScore": 82,
+  "summary": {
+    "errors": 3,
+    "warnings": 1,
+    "info": 2,
+    "total": 6
+  },
+  "findings": [
+    {
+      "id": "dead-unused-import",
+      "cluster": "dead-code",
+      "rule": "detekt.style.UnusedImports",
+      "severity": "info",
+      "file": "file:///C:/Users/Miguel/Desktop/doctor%20mobi%20ai%20fix/examples/bad-project/src/main/kotlin/bad/BadCode.kt",
+      "line": 34,
+      "column": 1,
+      "message": "The import 'kotlin.math.cos' is unused.",
+      "fixHint": "Remove the import."
+    },
+    {
+      "id": "coroutine-global-scope",
+      "cluster": "coroutines",
+      "rule": "detekt.coroutines.GlobalCoroutineUsage",
+      "severity": "error",
+      "file": "file:///C:/Users/Miguel/Desktop/doctor%20mobi%20ai%20fix/examples/bad-project/src/main/kotlin/bad/BadCode.kt",
+      "line": 51,
+      "column": 5,
+      "message": "This use of GlobalScope should be replaced by `CoroutineScope` or `coroutineScope`.",
+      "fixHint": "Use injected CoroutineScope (e.g., viewModelScope)."
+    },
+    {
+      "id": "sec-webview-javascript-enabled",
+      "cluster": "security",
+      "rule": "sec-webview-javascript-enabled",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 112,
+      "column": 14,
+      "message": "sec-webview-javascript-enabled: WebView JavaScript execution should not be enabled unless necessary and properly sanitised.",
+      "fixHint": "Do not enable JavaScript in WebView unless absolutely necessary and secure."
+    },
+    {
+      "id": "coroutine-dispatchers-hardcoded",
+      "cluster": "coroutines",
+      "rule": "coroutine-dispatchers-hardcoded",
+      "severity": "info",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 121,
+      "column": 22,
+      "message": "coroutine-dispatchers-hardcoded: Avoid hardcoding Dispatchers.IO. Use dependency injection to inject Dispatchers.",
+      "fixHint": "Inject dispatchers through the constructor to allow overriding them in tests."
+    },
+    {
+      "id": "compose-missing-key",
+      "cluster": "compose-performance",
+      "rule": "compose-missing-key",
+      "severity": "error",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 129,
+      "column": 5,
+      "message": "compose-missing-key: items() or itemsIndexed() inside lazy lists should specify a key to avoid unnecessary recompositions.",
+      "fixHint": "Define a unique key for each item in the list using the key parameter."
+    },
+    {
+      "id": "sec-log-pii",
+      "cluster": "security",
+      "rule": "sec-log-pii",
+      "severity": "error",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 139,
+      "column": 5,
+      "message": "sec-log-pii: Do not log PII (Personal Identifiable Information) such as emails, passwords, tokens, or phone numbers.",
+      "fixHint": "Do not log PII (emails, passwords, tokens, etc.). Remove or mask the logged data."
+    }
+  ]
+}

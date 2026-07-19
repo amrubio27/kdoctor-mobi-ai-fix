@@ -1,6 +1,7 @@
 package rulemap
 
 import (
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -8,31 +9,39 @@ import (
 )
 
 // Index es un índice in-memory construido desde []types.Rule.
-// Permite lookup O(1) por DetektRule. Sólo reglas "live" se indexan.
+// Permite lookup O(1) por DetektRule o ID. Sólo reglas "live" se indexan.
 type Index struct {
 	byDetekt map[string]types.Rule
+	byID     map[string]types.Rule
 }
 
 // BuildIndex construye el índice a partir del catálogo.
-// DetektRule vacío o status != "live" se omiten del índice.
+// Reglas con status != "live" se omiten del índice.
 func BuildIndex(rules []types.Rule) *Index {
-	idx := &Index{byDetekt: make(map[string]types.Rule, len(rules))}
+	idx := &Index{
+		byDetekt: make(map[string]types.Rule),
+		byID:     make(map[string]types.Rule),
+	}
 	for _, r := range rules {
-		if r.Status != "live" || r.DetektRule == "" {
+		if r.Status != "live" {
 			continue
 		}
-		idx.byDetekt[r.DetektRule] = r
+		idx.byID[r.ID] = r
+		if r.DetektRule != "" {
+			idx.byDetekt[r.DetektRule] = r
+		}
 	}
 	return idx
 }
 
 // Map enriquece cada Finding con id/cluster/severity/fixHint del catálogo.
 // Devuelve una NUEVA lista; el input queda intacto. Las reglas sin matchear
-// quedan con id="unmapped:<rule>" y cluster="unknown".
+// quedan con id="unmapped:<orig>" y cluster="unknown".
 //
 // Detekt 1.23.x SARIF outputs qualified ruleIds como "detekt.complexity.TooManyFunctions".
 // El catálogo solo guarda el nombre corto ("TooManyFunctions"). Normalizamos
 // queryID quitando cualquier prefijo "<vendor>.<ruleset>." antes del lookup.
+// Si no se encuentra por DetektRule, intentamos buscar por ID nativo directamente.
 func (idx *Index) Map(findings []types.Finding) []types.Finding {
 	out := make([]types.Finding, 0, len(findings))
 	for _, f := range findings {
@@ -40,7 +49,19 @@ func (idx *Index) Map(findings []types.Finding) []types.Finding {
 		if lastDot := strings.LastIndex(queryID, "."); lastDot != -1 {
 			queryID = queryID[lastDot+1:]
 		}
-		if r, ok := idx.byDetekt[queryID]; ok {
+
+		var matched bool
+		var r types.Rule
+
+		if rule, ok := idx.byDetekt[queryID]; ok {
+			r = rule
+			matched = true
+		} else if rule, ok := idx.byID[queryID]; ok {
+			r = rule
+			matched = true
+		}
+
+		if matched {
 			f.ID = r.ID
 			f.Cluster = r.Cluster
 			f.Severity = r.Severity
@@ -70,5 +91,62 @@ func (idx *Index) Map(findings []types.Finding) []types.Finding {
 	return out
 }
 
+// ApplyOverrides aplica la configuración del equipo (kdoctor.config.yaml).
+// - Si f.File hace match con algún patrón de cfg.Excludes, se descarta.
+// - Si cfg.Rules tiene un override para f.ID o f.Cluster, se aplica.
+// - Si la severidad resultante es "off", "disabled" o "none", se descarta.
+// Requiere importar filepath y config.
+func ApplyOverrides(findings []types.Finding, excludes []string, overrides map[string]string) []types.Finding {
+	if len(excludes) == 0 && len(overrides) == 0 {
+		return findings
+	}
+
+	var out []types.Finding
+	for _, f := range findings {
+		// 1. Excludes
+		excluded := false
+		for _, pattern := range excludes {
+			match, err := filepath.Match(pattern, f.File)
+			// filepath.Match sólo funciona con un directorio o nombre base si no hay slashes.
+			// Para globs más robustos se usaría filepath.Match recursivo o strings.Contains,
+			// pero para Fase 1 asumiremos que pueden usar strings.Contains o filepath.Match
+			if err == nil && match {
+				excluded = true
+				break
+			}
+			// Fallback manual para globs tipo "**/*"
+			if strings.Contains(pattern, "**") {
+				if strings.Contains(f.File, strings.ReplaceAll(pattern, "**", "")) {
+					excluded = true
+					break
+				}
+			}
+		}
+		if excluded {
+			continue
+		}
+
+		// 2. Severity Overrides
+		effectiveSeverity := string(f.Severity)
+
+		// Rule-level override wins over Cluster-level
+		if sev, ok := overrides[f.ID]; ok {
+			effectiveSeverity = sev
+		} else if sev, ok := overrides[f.Cluster]; ok {
+			effectiveSeverity = sev
+		}
+
+		// 3. Drop "off"
+		lowerSev := strings.ToLower(effectiveSeverity)
+		if lowerSev == "off" || lowerSev == "disabled" || lowerSev == "none" {
+			continue
+		}
+
+		f.Severity = types.Severity(effectiveSeverity)
+		out = append(out, f)
+	}
+	return out
+}
+
 // Len devuelve el número de reglas indexadas (para diagnóstico).
-func (idx *Index) Len() int { return len(idx.byDetekt) }
+func (idx *Index) Len() int { return len(idx.byID) }
