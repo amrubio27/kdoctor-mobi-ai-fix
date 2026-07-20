@@ -63,10 +63,25 @@ info -0.5), and emits rich console / JSON / SARIF reports.
   (`parseSupportsP`, `parseVersion`, `looksLikeVersion`); 15 new unit
   tests covering cache TTL, atomic write, detector injection, error UX.
 
+### Release Prep & Public Documentation (Round-3)
+
+- **#8** — Commit message audit + atomic history for v1.0.0; 14 commits
+  landed from Tier 1 #1 through Round-3 #10.
+- **#9** — GitHub Actions CI fast gate (`.github/workflows/ci.yml`):
+  `gofmt` drift check, `go vet ./...`, `go test -race`, binary build,
+  and `go mod tidy` drift check on push/PR to `main`.
+- **#9.1** — CI hardening: pinned `mobiai@^1.0.0` in integration workflow,
+  added `paths-ignore` for docs-only changes, replaced swallowers with
+  `set -euo pipefail` and `::error::` annotations.
+- **#9.2** — Fixed YAML header corruption introduced during #9.1 polish.
+- **#10** — Public rewrite of `README.md`: hero with badges, feature grid,
+  3-step quickstart, install options, usage sections, config examples,
+  CI snippet, comparison table, and honest scoping of `fix --mode auto`.
+
 ### Stats
 
-- 11 Go packages with tests.
-- 38 tests PASS in the full suite, 87 round-2-specific tests PASS.
+- 19 Go packages with tests.
+- All tests PASS in the full suite (`go test -count=1 ./...`).
 - Catalog: 78 rules total (`scripts/genschema/main.go`).
 - Health Score formula: `100 - errors*5 - warnings*2 - info*0.5`.
 - Project types supported: `kmp`, `cmp`, `jvm`, `android`, `compose`,
