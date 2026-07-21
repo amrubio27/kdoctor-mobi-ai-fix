@@ -37,12 +37,50 @@ type Config struct {
 
 // Default devuelve una config sensata para proyectos Android.
 func Default() Config {
-	c := Config{ProjectType: "android"}
-	c.Paths = map[string][]string{
-		"kotlin":  {"app/src/main/**/*.kt", "**/*.kt"},
-		"compose": {"**/*Composable*.kt"},
+	return ForProjectType("android")
+}
+
+// ForProjectType devuelve una configuración por defecto acorde al tipo de
+// proyecto detectado. Si projectType no es reconocido, cae a "plain".
+func ForProjectType(projectType string) Config {
+	c := Config{ProjectType: projectType}
+	switch projectType {
+	case "kmp":
+		c.Paths = map[string][]string{
+			"kotlin":  {"commonMain/**/*.kt", "androidMain/**/*.kt", "jvmMain/**/*.kt", "**/*.kt"},
+			"compose": {"commonMain/**/compose/*.kt", "commonMain/**/*Composable*.kt"},
+		}
+	case "cmp":
+		c.Paths = map[string][]string{
+			"kotlin":  {"composeApp/**/*.kt", "shared/**/*.kt", "**/*.kt"},
+			"compose": {"composeApp/**/ui/**/*.kt", "shared/**/*Composable*.kt"},
+		}
+	case "android":
+		c.Paths = map[string][]string{
+			"kotlin":  {"app/src/main/**/*.kt", "**/*.kt"},
+			"compose": {"**/*Composable*.kt"},
+		}
+	case "compose":
+		c.Paths = map[string][]string{
+			"kotlin":  {"**/*.kt"},
+			"compose": {"**/*Composable*.kt"},
+		}
+	case "jvm":
+		c.Paths = map[string][]string{
+			"kotlin": {"src/main/**/*.kt", "**/*.kt"},
+		}
+	case "gradle":
+		c.Paths = map[string][]string{
+			"kotlin": {"**/*.kt"},
+		}
+	default:
+		c.ProjectType = "plain"
+		c.Paths = map[string][]string{
+			"kotlin": {"**/*.kt"},
+		}
 	}
-	c.Rules = map[string]string{} // vacío = aplicar defaults del rulemap
+	c.Rules = map[string]string{}
+	c.Excludes = []string{"**/build/**", "**/.gradle/**", "**/kspCaches/**"}
 	c.Score.FailBelow = 80
 	c.AiFixer.Provider = "auto"
 	c.AiFixer.Mode = "suggest"
