@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Go build artifacts
+kdoctor
+kdoctor.exe
+*.exe
+
+# Go test cache
+*.test
+
+# Dashboard dependencies and build output
+dashboard/node_modules
+dashboard/dist
+
+# Documentation (not needed for binary build)
+docs/**/*.md
+*.md
+
+# CI/GitHub metadata
+.github
+
+# Local IDE and OS files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker files themselves are fine to copy for cache invalidation,
+# but no need to ship the built image context with them.
+Dockerfile
+.dockerignore
