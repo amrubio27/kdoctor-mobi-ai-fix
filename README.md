@@ -44,6 +44,7 @@ kdoctor scan                    # rich console + Health Score
 kdoctor scan --json             # CI-friendly JSON
 kdoctor scan --sarif            # GitHub Code Scanning
 kdoctor scan --diff main        # only new findings
+kdoctor scan --mobiai           # emit findings locally and upload to MobiAI Graph
 ```
 
 ---
@@ -62,12 +63,41 @@ go install github.com/adkd/adkd/cmd/kdoctor@latest
 
 Requires Go 1.22+.
 
-### Option C — Build from source
+### Option C — `kdoctor init`
+
+```bash
+cd my-android-project
+kdoctor init        # auto-detects project type and creates kdoctor.config.yaml + detekt.yml
+kdoctor scan
+```
+
+### Option D — Build from source
 
 ```bash
 git clone https://github.com/adkd/adkd.git
 cd adkd
 go build -o kdoctor ./cmd/kdoctor
+```
+
+### Option E — Build with Make
+
+```bash
+make build          # build the binary
+make test           # run the test suite
+make smoke          # run fixture smoke tests (requires detekt)
+make ci             # full CI gate: fmt-check + vet + race tests + build + smoke
+```
+
+Run `make help` for the full list of targets.
+
+### Option F — Docker
+
+A multi-stage Dockerfile ships the CLI together with a JRE and the Detekt CLI:
+
+```bash
+docker build -t kdoctor .
+docker run --rm -v $(pwd):/workspace -w /workspace \
+  kdoctor scan --detekt-bin /usr/local/lib/detekt-cli.jar --json
 ```
 
 ### Requirements
@@ -102,7 +132,10 @@ kdoctor scan --project-dir ./my-app --prefer-standalone --detekt-bin /path/to/de
 | `--detekt-bin <path>` | Explicit path to the Detekt binary. |
 | `--diff <ref>` | Only report findings on lines changed since `<ref>`. |
 | `--baseline <path>` | Suppress findings listed in a baseline file. |
-| `--mobiai` | Emit findings to `.mobiai/graph/findings.jsonl`. |
+| `--mobiai` | Emit findings to `.mobiai/graph/findings.jsonl` and upload to MobiAI Graph when an endpoint is configured. |
+| `--mobiai-url <url>` | MobiAI Graph endpoint URL (also `KDOCTOR_MOBIAI_URL`). |
+| `--mobiai-token <token>` | MobiAI Graph bearer token (also `KDOCTOR_MOBIAI_TOKEN`). |
+| `--mobiai-fail-on-error` | Fail the scan if the MobiAI Graph upload fails. |
 | `--fail-below <N>` | Exit with non-zero code if Health Score `< N`. |
 
 ### Fix with AI
@@ -240,10 +273,11 @@ Use `--fail-below <N>` to break CI when the score drops below your threshold.
 - [x] Tier 3 — HTML dashboard + team config overrides
 - [x] Round-2 — Defensive hardening (rulemap, patchguard, diff/baseline paths, qualityprompt, provider cache)
 - [x] Round-3 #9 — CI fast gate + gofmt/vet/race checks
-- [ ] Round-3 #11 — `kdoctor fix --mode auto` patch apply + rollback
-- [ ] Round-3 #12 — E2E tests on a real Android project
-- [ ] Round-3 #13 — Makefile + Dockerfile
-- [ ] Round-3 #14 — `kdoctor init` project bootstrapper
+- [x] Round-3 #11 — `kdoctor fix --mode auto` patch apply + rollback
+- [x] Round-3 #12 — E2E tests on a real Android project
+- [x] Round-3 #13 — Makefile + Dockerfile
+- [x] Round-3 #14 — `kdoctor init` project bootstrapper
+- [x] Round-3 #16 — MobiAI Graph integration end-to-end
 - [ ] v1.0.0 release — pre-built binaries + GitHub release notes
 
 See [`docs/HANDOVER.md`](docs/HANDOVER.md) for the full continuity document.
@@ -255,10 +289,10 @@ See [`docs/HANDOVER.md`](docs/HANDOVER.md) for the full continuity document.
 Contributions are welcome. Please make sure your changes pass:
 
 ```bash
-gofmt -l .        # should produce no output
-go vet ./...
-go test -race -count=1 ./...
-go build -o kdoctor ./cmd/kdoctor
+make lint        # gofmt drift check + go vet
+make test        # run the test suite
+make build       # build the binary
+make smoke       # run fixture smoke tests
 ```
 
 Read [`docs/HANDOVER.md`](docs/HANDOVER.md) before making substantial changes — it contains the project’s conventions, gotchas, and current state.

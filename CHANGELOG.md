@@ -79,6 +79,25 @@ info -0.5), and emits rich console / JSON / SARIF reports.
 - **#10** — Public rewrite of `README.md`: hero with badges, feature grid,
   3-step quickstart, install options, usage sections, config examples,
   CI snippet, comparison table, and honest scoping of `fix --mode auto`.
+- **#13** — Makefile + Dockerfile for local and containerized builds.
+  Makefile includes `build`, `test`, `test-race`, `lint`, `smoke`,
+  `e2e-rick-morty`, `dashboard-build`, and `help` targets. Dockerfile is
+  a multi-stage build shipping the kdoctor binary with a JRE and
+  Detekt 1.23.8; `.dockerignore` keeps the build context small.
+- **#12** — E2E test runner for a real Android project
+  (`scripts/e2e-rick-morty`). Runs `kdoctor scan --json` against the
+  configured `RICK_MORTY_APP` path, validates the schema version, score
+  range, and the presence of `arch-god-class`. Skips cleanly when the
+  project is not available.
+- **#14** — `kdoctor init` project bootstrapper. Auto-detects project
+  type (`android`, `kmp`, `cmp`, `compose`, `jvm`, `gradle`, `plain`)
+  from filesystem heuristics, generates `kdoctor.config.yaml`,
+  `detekt.yml`, and `.gitignore` entries, with `--force` and `--type`
+  overrides. Covered by `internal/cli/init_test.go`.
+- **#16** — MobiAI Graph integration. New `internal/mobiai` client posts
+  findings to a configurable endpoint (`--mobiai-url` / `--mobiai-token`).
+  Local `.mobiai/graph/findings.jsonl` output is preserved when no
+  endpoint is configured. Covered by `internal/mobiai/client_test.go`.
 
 ### Stats
 
@@ -103,6 +122,7 @@ info -0.5), and emits rich console / JSON / SARIF reports.
 - Detekt `--config` REPLACE-aware seeded config (`examples/bad-project/detekt.yml`).
 - File path normalization handles Unix, Windows, mixed-slashes, and UNC
   via `internal/core/pathutil`.
+- Tagged as `v1.0.0` (annotated).
 
 ---
 
