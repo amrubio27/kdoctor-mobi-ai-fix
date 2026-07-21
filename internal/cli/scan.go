@@ -21,6 +21,7 @@ import (
 	"github.com/adkd/adkd/internal/core/rules"
 	"github.com/adkd/adkd/internal/core/sarif"
 	"github.com/adkd/adkd/internal/core/types"
+	"github.com/adkd/adkd/internal/mobiai"
 	"github.com/adkd/adkd/internal/reporter/console"
 	jsonrep "github.com/adkd/adkd/internal/reporter/jsonreporter"
 	sarifrep "github.com/adkd/adkd/internal/reporter/sarif"
@@ -32,17 +33,20 @@ import (
 var ErrFailBelow = errors.New("health score below fail-below threshold")
 
 type scanFlags struct {
-	asJSON           bool
-	asSARIF          bool
-	projectType      string
-	preferStandalone bool
-	detektBin        string
-	projectDir       string
-	failBelow        int
-	outputPath       string
-	diffRef          string
-	baselinePath     string
-	mobiai           bool
+	asJSON            bool
+	asSARIF           bool
+	projectType       string
+	preferStandalone  bool
+	detektBin         string
+	projectDir        string
+	failBelow         int
+	outputPath        string
+	diffRef           string
+	baselinePath      string
+	mobiai            bool
+	mobiaiURL         string
+	mobiaiToken       string
+	mobiaiFailOnError bool
 }
 
 func NewScanCmd() *cobra.Command {
@@ -78,6 +82,9 @@ Por defecto: rich console.
 	cmd.Flags().StringVar(&f.diffRef, "diff", "", "filter findings to only those added/modified compared to the git reference")
 	cmd.Flags().StringVar(&f.baselinePath, "baseline", "", "suppress findings listed in the specified baseline.xml")
 	cmd.Flags().BoolVar(&f.mobiai, "mobiai", false, "output findings as JSONL to .mobiai/graph/findings.jsonl")
+	cmd.Flags().StringVar(&f.mobiaiURL, "mobiai-url", os.Getenv("KDOCTOR_MOBIAI_URL"), "MobiAI Graph endpoint URL (also env KDOCTOR_MOBIAI_URL)")
+	cmd.Flags().StringVar(&f.mobiaiToken, "mobiai-token", os.Getenv("KDOCTOR_MOBIAI_TOKEN"), "MobiAI Graph bearer token (also env KDOCTOR_MOBIAI_TOKEN)")
+	cmd.Flags().BoolVar(&f.mobiaiFailOnError, "mobiai-fail-on-error", false, "fail the scan if the MobiAI Graph upload fails")
 	return cmd
 }
 
@@ -232,7 +239,8 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	}
 
 	// 7b. Emitir a MobiAI graph si se solicitó.
-	if f.mobiai {
+	mobiaiEnabled := f.mobiai || f.mobiaiURL != ""
+	if mobiaiEnabled {
 		mobiaiDir := filepath.Join(wd, ".mobiai", "graph")
 		if err := os.MkdirAll(mobiaiDir, 0755); err != nil {
 			return fmt.Errorf("create mobiai dir: %w", err)
@@ -247,6 +255,17 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 		for _, finding := range report.Findings {
 			if err := enc.Encode(finding); err != nil {
 				return fmt.Errorf("encode finding for mobiai: %w", err)
+			}
+		}
+
+		// Upload to MobiAI Graph if an endpoint was configured.
+		if f.mobiaiURL != "" {
+			c := mobiai.New(f.mobiaiURL, f.mobiaiToken)
+			if err := c.UploadFindings(context.Background(), wd, report.Findings); err != nil {
+				if f.mobiaiFailOnError {
+					return fmt.Errorf("mobiai upload: %w", err)
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: mobiai upload failed: %v\n", err)
 			}
 		}
 	}
