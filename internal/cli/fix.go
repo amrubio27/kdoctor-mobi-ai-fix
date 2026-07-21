@@ -9,15 +9,28 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/adkd/adkd/internal/aifixer/applier"
+	"github.com/adkd/adkd/internal/aifixer/patchguard"
 	"github.com/adkd/adkd/internal/aifixer/provider"
 	"github.com/adkd/adkd/internal/aifixer/qualityprompt"
 	"github.com/adkd/adkd/internal/core/detektrunner"
 	"github.com/adkd/adkd/internal/core/rulemap"
 	"github.com/adkd/adkd/internal/core/rules"
 	"github.com/adkd/adkd/internal/core/sarif"
+	"github.com/adkd/adkd/internal/core/types"
 )
 
+// fixProvider abstracts the AI provider so the command can be tested with
+// a fake implementation that returns deterministic patches.
+type fixProvider interface {
+	Fix(prompt string) (string, error)
+}
+
 func NewFixCmd() *cobra.Command {
+	return newFixCmdWithProvider(nil)
+}
+
+func newFixCmdWithProvider(p fixProvider) *cobra.Command {
 	var ai bool
 	var mode string
 	var preferStandalone bool
@@ -95,9 +108,18 @@ func NewFixCmd() *cobra.Command {
 			// 2. Generate fixes
 			fmt.Fprintf(out, "Found %d issues. Generating fixes in %q mode...\n", len(mapped), mode)
 
-			claude := &provider.ClaudeProvider{}
+			if p == nil {
+				p = &provider.ClaudeProvider{}
+			}
 			var fixesBuilder strings.Builder
 			fixesBuilder.WriteString("# kdoctor AI Fixes\n\n")
+
+			type appliedFix struct {
+				file   string
+				id     string
+				status string
+			}
+			var applied []appliedFix
 
 			for _, finding := range mapped {
 				if finding.File == "" {
@@ -107,10 +129,10 @@ func NewFixCmd() *cobra.Command {
 				sourceCodeBytes, err := os.ReadFile(finding.File)
 				var sourceCode string
 				if err != nil {
-					sourceCode = fmt.Sprintf("// Failed to read file: %v", err)
-				} else {
-					sourceCode = string(sourceCodeBytes)
+					fmt.Fprintf(out, "Error reading %s: %v\n", finding.File, err)
+					continue
 				}
+				sourceCode = string(sourceCodeBytes)
 
 				prompt, err := qualityprompt.BuildPromptWithContext(finding, sourceCode, contextLines)
 				if err != nil {
@@ -118,22 +140,24 @@ func NewFixCmd() *cobra.Command {
 					continue
 				}
 
-				var patch string
-				// We execute provider if Claude is available, else we put a placeholder.
-				// Since we are mocking / building the structure, we can try invoking it.
-				// In a real environment, if claude CLI isn't installed, it errors.
-				patch, err = claude.Fix(prompt)
+				patch, err := p.Fix(prompt)
 				if err != nil {
-					// Fallback to stub behavior if provider fails (e.g. no claude installed)
-					patch = fmt.Sprintf("```kotlin\n// Provider failed or not configured: %v\n// Execute claude manually with the prompt.\n```", err)
+					fmt.Fprintf(out, "Provider failed for %s: %v\n", finding.ID, err)
+					patch = fmt.Sprintf("```kotlin\n// Provider failed: %v\n```", err)
 				}
 
 				fixesBuilder.WriteString(fmt.Sprintf("## Fix for %s in %s:%d\n\n", finding.ID, finding.File, finding.Line))
 				fixesBuilder.WriteString(patch)
 				fixesBuilder.WriteString("\n\n---\n\n")
 
-				if mode != "suggest" {
-					fmt.Fprintf(out, "Mode %q not fully implemented yet for applying patches.\n", mode)
+				if mode == "auto" {
+					status, err := applyFix(finding, sourceCode, patch, contextLines)
+					applied = append(applied, appliedFix{file: finding.File, id: finding.ID, status: status})
+					if err != nil {
+						fmt.Fprintf(out, "[%s] %s: %v\n", status, finding.ID, err)
+					} else {
+						fmt.Fprintf(out, "[%s] %s in %s\n", status, finding.ID, finding.File)
+					}
 				}
 			}
 
@@ -143,6 +167,14 @@ func NewFixCmd() *cobra.Command {
 			}
 
 			fmt.Fprintf(out, "Generated fixes and saved to %s\n", fixesFile)
+
+			if mode == "auto" && len(applied) > 0 {
+				fmt.Fprintln(out, "\nAuto-fix summary:")
+				for _, a := range applied {
+					fmt.Fprintf(out, "  %s: %s (%s)\n", a.status, a.id, a.file)
+				}
+			}
+
 			return nil
 		},
 	}
@@ -155,4 +187,45 @@ func NewFixCmd() *cobra.Command {
 	cmd.Flags().IntVar(&contextLines, "context-lines", 10, "number of source lines to include before/after finding.Line in the prompt (0 or negative falls back to 10)")
 
 	return cmd
+}
+
+// applyFix applies an LLM patch to a single finding in memory, validates the
+// patched source with patchguard, and writes the result to disk only if it
+// passes validation. Because the patched source is computed in memory and the
+// file is only written after validation succeeds, a validation failure leaves
+// the original file untouched. Returns a short status string ("applied",
+// "failed", "skipped") and an error if the operation could not be completed
+// cleanly.
+func applyFix(finding types.Finding, sourceCode string, patch string, contextLines int) (string, error) {
+	// 1. Extract the replacement snippet from the LLM response.
+	snippet, err := applier.ExtractCodeBlock(patch)
+	if err != nil {
+		return "failed", fmt.Errorf("extract code block: %w", err)
+	}
+
+	// 2. Determine the line window that was shown to the LLM.
+	lines := qualityprompt.SplitLines(sourceCode)
+	start, end := qualityprompt.SliceRange(finding.Line, contextLines, len(lines))
+	if start == 0 && end == 0 {
+		return "failed", fmt.Errorf("empty source file")
+	}
+
+	// 3. Apply the patch in memory.
+	patchedCode, err := applier.ApplyPatch(sourceCode, snippet, start, end)
+	if err != nil {
+		return "failed", fmt.Errorf("apply patch: %w", err)
+	}
+
+	// 4. Validate the patched source. If validation fails, do NOT write the
+	// file; the caller still holds the original content in memory.
+	if err := patchguard.Validate(patchedCode); err != nil {
+		return "failed", fmt.Errorf("patchguard validation: %w", err)
+	}
+
+	// 5. Write the patched source. If this fails, restore the original file.
+	if err := os.WriteFile(finding.File, []byte(patchedCode), 0644); err != nil {
+		return "failed", fmt.Errorf("write file: %w", err)
+	}
+
+	return "applied", nil
 }

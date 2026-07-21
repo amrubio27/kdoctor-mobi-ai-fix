@@ -114,8 +114,8 @@ func BuildPromptWithContext(finding types.Finding, sourceCode string, contextLin
 		contextLines = DefaultContextLines
 	}
 
-	lines := splitLines(sourceCode)
-	start, end := sliceRange(finding.Line, contextLines, len(lines))
+	lines := SplitLines(sourceCode)
+	start, end := SliceRange(finding.Line, contextLines, len(lines))
 
 	var b strings.Builder
 	b.WriteString(systemPrompt)
@@ -158,13 +158,20 @@ func BuildPromptWithContext(finding types.Finding, sourceCode string, contextLin
 	b.WriteString("```\n")
 	b.WriteString("\nPlease provide the fixed code for the marked line, preserving surrounding semantics.\n")
 
+	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf("IMPORTANT: Replace exactly lines %d to %d shown above. "+
+		"Return ONLY the replacement code for those lines. Do NOT include line numbers. "+
+		"Do NOT explain. Wrap the code in a ```kotlin ... ``` fence.\n",
+		start+1, end))
+
 	return b.String(), nil
 }
 
-// splitLines splits sourceCode on newlines without emitting a trailing
+// SplitLines splits sourceCode on newlines without emitting a trailing
 // empty entry — "a\nb\n" → ["a", "b"], which is what 1-based line
-// indexing expects.
-func splitLines(sourceCode string) []string {
+// indexing expects. Exported so applier can reuse the same normalization
+// and line-counting semantics.
+func SplitLines(sourceCode string) []string {
 	if sourceCode == "" {
 		return nil
 	}
@@ -178,10 +185,12 @@ func splitLines(sourceCode string) []string {
 	return strings.Split(trimmed, "\n")
 }
 
-// sliceRange computes the half-open line range [start, end) clamped to
+// SliceRange computes the half-open line range [start, end) clamped to
 // [0, numLines]. findingLine is treated as 1-based and clamped if out of
 // bounds, so a malformed finding.Line never produces a panic or empty slice.
-func sliceRange(findingLine, contextLines, numLines int) (start, end int) {
+// Exported so the fix applier can operate on the same window that was
+// shown to the LLM.
+func SliceRange(findingLine, contextLines, numLines int) (start, end int) {
 	if numLines <= 0 {
 		return 0, 0
 	}

@@ -339,7 +339,7 @@ func TestSliceRange(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotStart, gotEnd := sliceRange(tt.line, tt.n, tt.total)
+			gotStart, gotEnd := SliceRange(tt.line, tt.n, tt.total)
 			if gotStart != tt.wantStart || gotEnd != tt.wantEnd {
 				t.Errorf("sliceRange(%d, %d, %d) = (%d, %d), want (%d, %d)",
 					tt.line, tt.n, tt.total, gotStart, gotEnd, tt.wantStart, tt.wantEnd)
@@ -364,7 +364,7 @@ func TestSplitLines(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := splitLines(tt.in)
+			got := SplitLines(tt.in)
 			if len(got) != len(tt.want) {
 				t.Fatalf("%s: len got %d want %d (got=%v)", tt.name, len(got), len(tt.want), got)
 			}

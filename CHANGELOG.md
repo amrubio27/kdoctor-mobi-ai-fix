@@ -27,7 +27,9 @@ info -0.5), and emits rich console / JSON / SARIF reports.
 - **Tier 2 #4** — Gradle plugin `kdoctor-gradle-plugin` exposing
   `kdoctorScan` task (non-invasive, user-opt-in).
 - **Tier 2 #5** — `kdoctor fix --ai` LLM-driven fixer with Claude provider,
-  patchguard validator, and quality-focused prompt templates.
+  patchguard validator, and quality-focused prompt templates. `--mode auto`
+  extracts the code block, applies the patch, validates the patched file,
+  and rolls back on validation failure.
 - **Tier 3 #6** — HTML dashboard (vite + tailwind): cluster distribution charts,
   score trend, integration with MobiAI Graph via `--mobiai` flag.
 - **Tier 3 #7** — `kdoctor.config.yaml` live overrides: cluster-aware severity,
