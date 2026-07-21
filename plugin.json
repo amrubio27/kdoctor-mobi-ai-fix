@@ -1,0 +1,20 @@
+{
+  "name": "kdoctor",
+  "displayName": "kdoctor (Android Doctor)",
+  "description": "Static analysis + AI auto-fix Health Score for Android/KMP/CMP.",
+  "version": "0.1.0",
+  "author": "kdoctor contributors",
+  "license": "MIT",
+  "homepage": "https://github.com/kdoctor/kdoctor",
+  "repository": "github.com/kdoctor/kdoctor",
+  "commands": [
+    { "name": "scan",  "binary": "kdoctor",  "args": ["scan"]  },
+    { "name": "fix",   "binary": "kdoctor",  "args": ["fix"]   },
+    { "name": "init",  "binary": "kdoctor",  "args": ["init"]  },
+    { "name": "hook",  "binary": "kdoctor",  "args": ["hook"]  },
+    { "name": "doctor","binary": "kdoctor",  "args": ["doctor"] }
+  ],
+  "skills": ["./SKILL.md"],
+  "hooks": [],
+  "depends_on": ["core"]
+}

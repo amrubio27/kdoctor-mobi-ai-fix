@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "system-ui", "-apple-system", "sans-serif";
+  --font-mono: "JetBrains Mono", "ui-monospace", "monospace";
+
+  --color-ink-950: #05060a;
+  --color-ink-900: #0a0d17;
+  --color-ink-800: #101626;
+  --color-ink-700: #1a2138;
+  --color-ink-600: #252d4a;
+
+  --color-glow-green: #22ff88;
+  --color-glow-cyan: #21e6ff;
+  --color-glow-purple: #b46aff;
+  --color-glow-pink: #ff4ab6;
+  --color-glow-red: #ff5470;
+  --color-glow-amber: #ffb84a;
+}
+
+body {
+  background-color: var(--color-ink-950);
+  color: #d6dcec;
+  font-family: var(--font-sans);
+}
+
+.glass-panel {
+  background-color: rgba(10, 13, 23, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+}
