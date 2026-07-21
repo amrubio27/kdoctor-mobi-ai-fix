@@ -217,6 +217,14 @@ style:
   UnusedImports:
     active: true
 
+naming:
+  active: true
+  FunctionNaming:
+    active: true
+    # Compose functions use PascalCase; detekt's default expects camelCase.
+    ignoreAnnotated:
+      - "Composable"
+
 complexity:
   active: true
   TooManyFunctions:

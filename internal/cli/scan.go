@@ -24,6 +24,7 @@ import (
 	"github.com/adkd/adkd/internal/mobiai"
 	"github.com/adkd/adkd/internal/reporter/console"
 	jsonrep "github.com/adkd/adkd/internal/reporter/jsonreporter"
+	mdrep "github.com/adkd/adkd/internal/reporter/markdown"
 	sarifrep "github.com/adkd/adkd/internal/reporter/sarif"
 )
 
@@ -31,6 +32,32 @@ import (
 // debajo del umbral configurado en --fail-below. Cobra lo imprimirá en
 // stderr y devolverá exit code != 0 automáticamente; los defers corren.
 var ErrFailBelow = errors.New("health score below fail-below threshold")
+
+// validateOutputFlags asegura que los formatos de salida sean mutuamente
+// excluyentes y no se combinen de forma inconsistente.
+func validateOutputFlags(f *scanFlags) error {
+	var formats int
+	if f.asJSON {
+		formats++
+	}
+	if f.asSARIF {
+		formats++
+	}
+	if f.asMD {
+		formats++
+	}
+	if formats > 1 {
+		return fmt.Errorf("only one output format can be used among --json, --sarif, --md")
+	}
+	if f.summary && (f.asJSON || f.asSARIF || f.asMD) {
+		// Summary modifica la salida de consola; es compatible con --md en
+		// modo "resumen markdown". Para JSON/SARIF no tiene sentido.
+		if f.asJSON || f.asSARIF {
+			return fmt.Errorf("--summary cannot be combined with --json or --sarif")
+		}
+	}
+	return nil
+}
 
 type scanFlags struct {
 	asJSON            bool
@@ -47,6 +74,9 @@ type scanFlags struct {
 	mobiaiURL         string
 	mobiaiToken       string
 	mobiaiFailOnError bool
+	asMD              bool
+	summary           bool
+	verbose           bool
 }
 
 func NewScanCmd() *cobra.Command {
@@ -66,8 +96,14 @@ Por defecto: rich console.
 --fail-below N      : exit code !=0 si score < N
 --out path          : escribir a fichero en lugar de stdout
 --diff ref          : filtrar por líneas modificadas/añadidas respecto al git ref
---baseline path     : suprimir findings listados en el baseline.xml`,
+--baseline path     : suprimir findings listados en el baseline.xml
+--md                : generar kdoctor-report.md en el directorio del proyecto
+--summary           : mostrar solo resumen ejecutivo y top clusters
+--verbose           : mostrar salida de detekt (por defecto se ocultan los warnings JVM)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateOutputFlags(f); err != nil {
+				return err
+			}
 			return runScan(cmd, f)
 		},
 	}
@@ -85,6 +121,9 @@ Por defecto: rich console.
 	cmd.Flags().StringVar(&f.mobiaiURL, "mobiai-url", os.Getenv("KDOCTOR_MOBIAI_URL"), "MobiAI Graph endpoint URL (also env KDOCTOR_MOBIAI_URL)")
 	cmd.Flags().StringVar(&f.mobiaiToken, "mobiai-token", os.Getenv("KDOCTOR_MOBIAI_TOKEN"), "MobiAI Graph bearer token (also env KDOCTOR_MOBIAI_TOKEN)")
 	cmd.Flags().BoolVar(&f.mobiaiFailOnError, "mobiai-fail-on-error", false, "fail the scan if the MobiAI Graph upload fails")
+	cmd.Flags().BoolVar(&f.asMD, "md", false, "generate kdoctor-report.md in the project directory")
+	cmd.Flags().BoolVar(&f.summary, "summary", false, "show only summary and top clusters")
+	cmd.Flags().BoolVar(&f.verbose, "verbose", false, "show detekt output (default hides JVM warnings)")
 	return cmd
 }
 
@@ -111,15 +150,14 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	// 2. Detectar modo y correr Detekt.
 	mode := detektrunner.Detect(wd, f.preferStandalone)
 	sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt.sarif")
-	// Cuando emitimos formato estructurado (--json / --sarif), el writer del
-	// detekt subprocess debe ser io.Discard para no contaminar la salida con
-	// líneas tipo "WARNING: sun.misc.Unsafe..." del JVM. En modo consola sí
-	// queremos reenviar la salida de detekt al usuario (feedback durante scan).
+	// Ocultar por defecto la salida del subproceso detekt para evitar que
+	// los warnings del JVM (sun.misc.Unsafe) contaminen el reporte. El flag
+	// --verbose permite volver a mostrar esa salida.
 	var detektOut io.Writer
-	if f.asJSON || f.asSARIF {
-		detektOut = io.Discard
-	} else {
+	if f.verbose {
 		detektOut = cmd.OutOrStdout()
+	} else {
+		detektOut = io.Discard
 	}
 	if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
 		ProjectDir:     wd,
@@ -233,9 +271,15 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 		return jsonrep.Write(report, target)
 	case f.asSARIF:
 		return sarifrep.Write(report, target)
+	case f.asMD:
+		return renderMarkdown(report, wd, target, f.outputPath, f.summary)
 	default:
 		hasTty := isTerminal(cmd.OutOrStdout())
-		console.RenderReport(report, target, hasTty)
+		if f.summary {
+			console.RenderSummary(report, target, hasTty)
+		} else {
+			console.RenderReport(report, target, hasTty)
+		}
 	}
 
 	// 7b. Emitir a MobiAI graph si se solicitó.
@@ -277,6 +321,36 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 			score, f.failBelow)
 		return ErrFailBelow
 	}
+	return nil
+}
+
+func renderMarkdown(report types.Report, wd string, target io.Writer, outputPath string, summary bool) error {
+	write := func(w io.Writer) error {
+		if summary {
+			return mdrep.WriteSummary(report, w)
+		}
+		return mdrep.Write(report, w)
+	}
+
+	if outputPath != "" {
+		if err := write(target); err != nil {
+			return fmt.Errorf("write markdown report: %w", err)
+		}
+		// Confirmation va al stdout del comando, no al archivo de salida.
+		fmt.Fprintf(os.Stdout, "Markdown report written to %s\n", outputPath)
+		return nil
+	}
+
+	path := filepath.Join(wd, "kdoctor-report.md")
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("create markdown report: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+	if err := write(f); err != nil {
+		return fmt.Errorf("write markdown report: %w", err)
+	}
+	fmt.Fprintf(target, "Markdown report written to %s\n", path)
 	return nil
 }
 

@@ -394,3 +394,63 @@ Round-2 fue **endurecimiento defensivo del coderound-1**. Round-3 es **release p
 - Sub-tareas adicionales que surjan: añadir como puntos sueltos al final del bloque en lugar de inflar la tabla.
 
 **Trigger para arrancar round-3**: usuario confirma verbalmente o el flujo explícito "sigue con round-3". Si no, mantener proyecto en standby con round-2 cerrado a la espera.
+
+---
+
+## 14. Post-v1.0.0: MCP server + Honey guardrails
+
+Añadido después de cerrar Round-3 para facilitar que agentes de IA usen kdoctor de forma segura.
+
+| # | Tarea | Estado | Detalle |
+|---|---|---|---|
+| **17** | `kdoctor-mcp` server stdio | ✅ cerrado | Nuevo binario `cmd/kdoctor-mcp/main.go` que implementa JSON-RPC 2.0 sobre stdio siguiendo el Model Context Protocol (MCP). Expone las tools: `kdoctor_scan`, `kdoctor_rules`, `kdoctor_init`, `kdoctor_doctor`, `kdoctor_fix_suggest`. El servidor resuelve el binario `kdoctor` vía `KDOCTOR_BIN` o PATH. Tests en `cmd/kdoctor-mcp/main_test.go`. Validación: `go build ./cmd/kdoctor-mcp`, `go test ./cmd/kdoctor-mcp/...`. |
+| **18** | Honey guardrails | ✅ cerrado | Nuevo archivo `HONEY.md` con reglas de guardrails para agentes IA que trabajen en el repo: plan-before-code, self-review obligatorio, hard hooks (no push, no sudo, no borrar tests sin reemplazo, no cambiar APIs públicas sin actualizar callers), checklist de validación (`gofmt`, `go vet`, `go test`, `go build`), y contexto del MCP server. `SKILL.md` actualizado para referenciar `HONEY.md` y el MCP server. |
+| **19** | Honey for Devs style rules | ✅ cerrado | Añadidas las reglas de estilo de `green-pt/honey-for-devs` para reducir tokens y mantener código mínimo: `.clinerules/honey.md` (Cline/Claude Code) y `.cursor/rules/honey.mdc` (Cursor). Complementan `HONEY.md` sin reemplazarlo; `HONEY.md` contiene guardrails específicos de kdoctor, mientras que los archivos bajo `.clinerules`/`.cursor` contienen el style guide de Honey. |
+
+### Configuración rápida del MCP server en Cursor / Claude Code / Cline
+
+```bash
+# Construir el binario
+go build -o kdoctor-mcp.exe ./cmd/kdoctor-mcp
+
+# Ejecutar directamente (stdio)
+go run ./cmd/kdoctor-mcp
+```
+
+Configuración de ejemplo para un cliente MCP:
+```json
+{
+  "mcpServers": {
+    "kdoctor": {
+      "command": "C:/Users/Miguel/Desktop/doctor mobi ai fix/kdoctor-mcp.exe",
+      "env": {
+        "KDOCTOR_BIN": "C:/Users/Miguel/Desktop/doctor mobi ai fix/kdoctor.exe"
+      }
+    }
+  }
+}
+```
+
+| **20** | UX polish: `--md`, `--summary`, `--verbose` y `detekt.yml` Compose-friendly | ✅ cerrado | Nuevo reporter Markdown (`internal/reporter/markdown`) con `kdoctor scan --md` generando `kdoctor-report.md` y `--md --summary` para versión resumida. Flag `--summary` muestra solo Health Score, summary counts y top-5 clusters en consola (y markdown resumido). Flag `--verbose` muestra salida de detekt; por defecto se ocultan warnings JVM (`sun.misc.Unsafe`). `kdoctor init` ahora genera `detekt.yml` con `naming.FunctionNaming.ignoreAnnotated: ["Composable"]` para evitar falsos positivos de `FunctionNaming` en funciones Composable PascalCase. Tests: `internal/reporter/markdown/markdown_test.go`. Validación: `go vet ./...`, `go test ./...`, `go build -o kdoctor.exe ./cmd/kdoctor` todos pasan. |
+
+### Invocaciones nuevas
+
+```bash
+# Generar reporte markdown legible en el directorio del proyecto
+./kdoctor.exe scan --md --project-dir=D:/Programacion/RickMortyApp
+# → Markdown report written to D:/Programacion/RickMortyApp/kdoctor-report.md
+
+# Markdown resumido (sin sección de findings detallados)
+./kdoctor.exe scan --md --summary --project-dir=D:/Programacion/RickMortyApp
+
+# Solo resumen ejecutivo en consola (score + top clusters)
+./kdoctor.exe scan --summary --project-dir=D:/Programacion/RickMortyApp
+
+# Ver salida de detekt (por defecto oculta warnings JVM)
+./kdoctor.exe scan --verbose --project-dir=D:/Programacion/RickMortyApp
+
+# Bootstrap detekt.yml con FunctionNaming tolerante a @Composable
+./kdoctor.exe init --type=cmp
+```
+
+Antes de tocar el código del repo, cualquier IA debe leer `HONEY.md` y seguir sus guardrails.

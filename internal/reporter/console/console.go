@@ -25,6 +25,15 @@ const (
 // RenderReport imprime el Report en `w` con formato rich.
 // Si el writer parece no ser TTY (hasTty=false), se omiten los colores.
 func RenderReport(r types.Report, w io.Writer, hasTty bool) {
+	renderReport(r, w, hasTty, false)
+}
+
+// RenderSummary imprime solo el resumen ejecutivo y los clusters más problemáticos.
+func RenderSummary(r types.Report, w io.Writer, hasTty bool) {
+	renderReport(r, w, hasTty, true)
+}
+
+func renderReport(r types.Report, w io.Writer, hasTty bool, summaryOnly bool) {
 	c := func(color, s string) string {
 		if !hasTty {
 			return s
@@ -54,6 +63,12 @@ func RenderReport(r types.Report, w io.Writer, hasTty bool) {
 		clusters = append(clusters, cl)
 	}
 	sort.Strings(clusters)
+
+	if summaryOnly {
+		renderTopClusters(w, byCluster, clusters, hasTty, c)
+		return
+	}
+
 	for _, cl := range clusters {
 		fmt.Fprintf(w, "\n[%s] %d issues\n", cl, len(byCluster[cl]))
 		for _, f := range byCluster[cl] {
@@ -64,6 +79,29 @@ func RenderReport(r types.Report, w io.Writer, hasTty bool) {
 				fmt.Fprintf(w, "    \u2192 %s\n", f.FixHint)
 			}
 		}
+	}
+}
+
+func renderTopClusters(w io.Writer, byCluster map[string][]types.Finding, clusters []string, hasTty bool, c func(color, s string) string) {
+	if len(clusters) == 0 {
+		return
+	}
+	fmt.Fprintln(w, "\nTop clusters:")
+
+	// Ordenar por cantidad de issues (descendente)
+	sorted := make([]string, len(clusters))
+	copy(sorted, clusters)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return len(byCluster[sorted[i]]) > len(byCluster[sorted[j]])
+	})
+
+	limit := 5
+	if len(sorted) < limit {
+		limit = len(sorted)
+	}
+	for i := 0; i < limit; i++ {
+		cl := sorted[i]
+		fmt.Fprintf(w, "  %d. [%s] %d issues\n", i+1, cl, len(byCluster[cl]))
 	}
 }
 
