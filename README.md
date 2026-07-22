@@ -1,304 +1,160 @@
-# kdoctor · Android / KMP / CMP Health Scanner
+# 🩺 kdoctor — Code Quality & Health Auditor for Android / KMP / Compose
 
-[![CI](https://github.com/adkd/adkd/actions/workflows/ci.yml/badge.svg)](https://github.com/adkd/adkd/actions/workflows/ci.yml)
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.22-blue)](https://go.dev)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-> **A single CLI that audits Android, Kotlin Multiplatform and Compose Multiplatform projects, computes a 0–100 Health Score, and suggests AI-powered fixes.**
-
-kdoctor runs [Detekt](https://detekt.dev/) under the hood, maps every finding to a curated rule catalog, and turns the result into actionable reports: rich console, JSON, SARIF, or the bundled HTML dashboard. It can also emit findings straight to the MobiAI Graph.
-
-Inspired by [`react-doctor`](https://github.com/millionco/react-doctor), built for Kotlin teams.
+> **Addon PoC para `mobiAi`**: Herramienta de auditoría estática de código de alto rendimiento que evalúa la salud de proyectos Kotlin/KMP/CMP (0-100 Health Score), detecta antipatrones de arquitectura, seguridad y Compose, y permite autocorregir hallazgos mediante IA.
 
 ---
 
-## ✨ Features
+## 🚀 Características Clave
 
-| Feature | What it means |
-|---|---|
-| **Health Score 0–100** | One number that summarises the quality of your codebase. |
-| **78 curated rules** | 11 live V1 rules + 53 planned + 14 default Detekt mappings, grouped by cluster (`compose-*`, `coroutine-*`, `security-*`, `architecture-*`, …). |
-| **Multiple output formats** | Rich console, JSON schema v3, SARIF 2.1.0, HTML dashboard, or MobiAI Graph JSONL. |
-| **Diff-aware scanning** | `kdoctor scan --diff main` reports only the findings introduced on the current branch. |
-| **Baseline suppression** | `kdoctor scan --baseline baseline.xml` ignores known issues. |
-| **AI Fixer** | `kdoctor fix --ai` generates context-aware patches via Claude Code / Cursor / Gemini / MobiAI (safe `suggest` mode by default). |
-| **Team config** | `kdoctor.config.yaml` lets you disable rules, change severities, exclude paths, and set a quality gate. |
-| **Single Go binary** | Ships as one executable; uses your existing Detekt or Gradle wrapper (JVM still required by Detekt/Gradle). |
-
----
-
-## 🚀 Quick start
-
-```bash
-# 1. Install
-#    - Pre-built binary: see Releases
-#    - Or with Go:
-go install github.com/adkd/adkd/cmd/kdoctor@latest
-
-# 2. Bootstrap your project
-cd my-android-project
-kdoctor init        # creates kdoctor.config.yaml
-
-# 3. Scan
-kdoctor scan                    # rich console + Health Score
-kdoctor scan --json             # CI-friendly JSON
-kdoctor scan --sarif            # GitHub Code Scanning
-kdoctor scan --diff main        # only new findings
-kdoctor scan --mobiai           # emit findings locally and upload to MobiAI Graph
-```
+- 📊 **Health Score (0-100)**: Algoritmo determinista de puntuación: `100 - (errors×5) - (warnings×2) - (info×0.5)`.
+- 🔍 **78 Reglas de Calidad Catalogadas**:
+  - 11 Reglas V1 Live (seguridad, corrutinas, fugas de memoria, arquitectura God Class).
+  - 14 Mapeos directos de Detekt SARIF 2.1.0.
+  - Reglas nativas en Go (sin JVM overhead para escaneo regex de PII, WebViews inseguros, Dispatchers hardcoded y llaves de Compose).
+- 🛠️ **Integración MCP Natively Built-in (`kdoctor-mcp`)**: Servidor JSON-RPC 2.0 sobre `stdio` para consumo directo por Cursor, Claude Code y agencias MobiAI.
+- 🤖 **AI Quality Fixer (`kdoctor fix --ai`)**: Construye prompts enriquecidos con contexto relativo de código (±10 líneas) e incluye **Patchguard** (lexer Kotlin que previene syntax breaks y realiza rollback automático).
+- 📑 **Reportes Multi-formato**: Consola TUI interactiva, Markdown (`kdoctor scan --md`), JSON Schema v3 (`--json`) y SARIF 2.1.0 (`--sarif`) para GitHub Code Scanning.
+- 🌐 **Integración MobiAI Graph**: Exportación directa de telemetría de hallazgos vía API REST o feed local `.mobiai/graph/findings.jsonl`.
+- ⚙️ **Configuración Flexible (`kdoctor.config.yaml`)**: Anulación de severidades por regla o por cluster, exclusiones personalizadas y baselines XML (`--baseline`).
 
 ---
 
-## 📦 Installation
+## 💻 Requisitos Previos
 
-### Option A — Download a release binary
+- **Go 1.22+** (para compilación).
+- **JDK 17+** (necesario para ejecutar el motor `detekt` subyacente).
+- Binario `detekt-cli` (opcionalmente gestionado o especificado mediante `--detekt-bin`).
 
-Grab the latest binary for your platform from the [Releases](https://github.com/adkd/adkd/releases) page and put it on your `PATH`.
+---
 
-### Option B — Install with Go
+## 📦 Instalación
 
+### Opción A: Compilación desde código fuente
 ```bash
-go install github.com/adkd/adkd/cmd/kdoctor@latest
+git clone https://github.com/amrubio27/kdoctor-mobi-ai-fix.git
+cd kdoctor-mobi-ai-fix
+make build
+# Genera kdoctor.exe y kdoctor-mcp.exe
 ```
 
-Requires Go 1.22+.
-
-### Option C — `kdoctor init`
-
-```bash
-cd my-android-project
-kdoctor init        # auto-detects project type and creates kdoctor.config.yaml + detekt.yml
-kdoctor scan
-```
-
-### Option D — Build from source
-
-```bash
-git clone https://github.com/adkd/adkd.git
-cd adkd
-go build -o kdoctor ./cmd/kdoctor
-```
-
-### Option E — Build with Make
-
-```bash
-make build          # build the binary
-make test           # run the test suite
-make smoke          # run fixture smoke tests (requires detekt)
-make ci             # full CI gate: fmt-check + vet + race tests + build + smoke
-```
-
-Run `make help` for the full list of targets.
-
-### Option F — Docker
-
-A multi-stage Dockerfile ships the CLI together with a JRE and the Detekt CLI:
-
+### Opción B: Docker
 ```bash
 docker build -t kdoctor .
-docker run --rm -v $(pwd):/workspace -w /workspace \
-  kdoctor scan --detekt-bin /usr/local/lib/detekt-cli.jar --json
-```
-
-### Requirements
-
-- **Go** 1.22+ (only for building / `go install`).
-- **Detekt CLI** or a Gradle wrapper with Detekt configured.
-- **JDK** 17+ (used by Detekt/Gradle).
-
-Check your environment with:
-
-```bash
-kdoctor doctor
+docker run --rm -v $(pwd):/workspace kdoctor scan --project-dir=/workspace
 ```
 
 ---
 
-## 🛠️ Usage
+## 🏁 Guía de Uso Rápido (Quickstart)
 
-### Scan
-
+### 1. Verificar Entorno
 ```bash
-kdoctor scan --project-dir ./my-app --prefer-standalone --detekt-bin /path/to/detekt
+./kdoctor doctor
 ```
 
-| Flag | Description |
+### 2. Inicializar Proyecto
+Genera archivos de configuración adaptados al stack (`android`, `kmp`, `cmp`, `compose`):
+```bash
+./kdoctor init --type=kmp --with-skills
+```
+
+### 3. Escanear un Proyecto
+```bash
+./kdoctor scan --project-dir=/ruta/a/tu/proyecto
+```
+
+### 4. Generar Reporte Markdown o Resumen Ejecutivo
+```bash
+# Reporte completo en Markdown
+./kdoctor scan --md --project-dir=/ruta/a/tu/proyecto
+
+# Resumen ejecutivo en consola (Score + Top Clusters)
+./kdoctor scan --summary --project-dir=/ruta/a/tu/proyecto
+```
+
+### 5. Reparación Asistida por IA
+```bash
+# Sugerir arreglos en fixes.md
+./kdoctor fix --ai
+
+# Aplicar arreglos automáticamente con validación Patchguard
+./kdoctor fix --ai --mode=auto
+```
+
+---
+
+## 🔌 Configuración para IDEs y Agentes IA (MCP Server)
+
+Para integrar `kdoctor` en Cursor, Claude Code o MobiAI CLI, añade la siguiente entrada a la configuración MCP (`mcpServers`):
+
+```json
+{
+  "mcpServers": {
+    "kdoctor": {
+      "command": "C:/ruta/a/kdoctor-mcp.exe",
+      "env": {
+        "KDOCTOR_BIN": "C:/ruta/a/kdoctor.exe"
+      }
+    }
+  }
+}
+```
+
+### Herramientas MCP Disponibles
+
+| Tool MCP | Descripción |
 |---|---|
-| `--json` | Output JSON schema v3. |
-| `--sarif` | Output SARIF 2.1.0. |
-| `--out <path>` | Write report to a file. |
-| `--project-dir <dir>` | Project to scan (default: current directory). |
-| `--prefer-standalone` | Use the `detekt` binary instead of `./gradlew`. |
-| `--detekt-bin <path>` | Explicit path to the Detekt binary. |
-| `--diff <ref>` | Only report findings on lines changed since `<ref>`. |
-| `--baseline <path>` | Suppress findings listed in a baseline file. |
-| `--mobiai` | Emit findings to `.mobiai/graph/findings.jsonl` and upload to MobiAI Graph when an endpoint is configured. |
-| `--mobiai-url <url>` | MobiAI Graph endpoint URL (also `KDOCTOR_MOBIAI_URL`). |
-| `--mobiai-token <token>` | MobiAI Graph bearer token (also `KDOCTOR_MOBIAI_TOKEN`). |
-| `--mobiai-fail-on-error` | Fail the scan if the MobiAI Graph upload fails. |
-| `--fail-below <N>` | Exit with non-zero code if Health Score `< N`. |
-
-### Fix with AI
-
-```bash
-# Generate fixes.md without touching source code (default, safe)
-kdoctor fix --ai --mode suggest
-
-# Review each fix interactively
-kdoctor fix --ai --mode interactive
-
-# Auto-apply patches (use with care; still being hardened for v1.0.1)
-kdoctor fix --ai --mode auto
-```
-
-### List rules
-
-```bash
-kdoctor rules
-```
-
-### HTML dashboard
-
-```bash
-kdoctor scan --json --out report.json
-# Then in dashboard/
-cd dashboard
-npm install
-npm run dev
-```
+| `kdoctor_scan` | Ejecuta análisis estático y devuelve score + hallazgos JSON |
+| `kdoctor_rules` | Lista el catálogo de reglas y sus taxonomías |
+| `kdoctor_init` | Configura archivos `kdoctor.config.yaml` y `detekt.yml` |
+| `kdoctor_doctor` | Valida dependencias del sistema |
+| `kdoctor_fix_suggest` | Genera prompt de reparación con contexto de código |
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Configuración del Proyecto (`kdoctor.config.yaml`)
 
-`kdoctor init` creates a `kdoctor.config.yaml` file:
+Ejemplo de personalización de reglas por equipo:
 
 ```yaml
-projectType: android
+project:
+  type: kmp
+  excludes:
+    - "**/build/**"
+    - "**/.gradle/**"
 
-paths:
-  kotlin:
-    - "app/src/main/**/*.kt"
-
-rules:
-  coroutine-global-scope: error
+overrides:
+  # Desactivar cluster completo
+  formatting: OFF
+  
+  # Cambiar severidad de cluster
+  security: warning
+  
+  # Override por regla específica (precede sobre cluster)
   sec-log-pii: error
-  security: warning   # cluster-level override
-
-excludes:
-  - "**/generated/**"
-  - "**/build/**"
-
-score:
-  failBelow: 80
-
-aiFixer:
-  provider: auto
-  mode: suggest
 ```
-
-- `rules` accepts rule IDs or cluster IDs. Rule-level severity wins over cluster-level.
-- Use `off`, `disabled`, or `none` to disable a rule/cluster.
-- `excludes` supports glob patterns (`**` for any depth).
 
 ---
 
-## 🔁 CI / GitHub Actions
+## 🔗 Integración CI/CD y MobiAI Graph
 
-kdoctor ships with a fast CI gate in `.github/workflows/ci.yml`:
-
+### En GitHub Actions
 ```yaml
-name: CI Fast Gate
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+- name: Run kdoctor Scan
+  run: ./kdoctor scan --sarif --out=results.sarif
 
-jobs:
-  ci:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.23.x"
-      - run: gofmt -l .
-      - run: go vet ./...
-      - run: go test -race -count=1 ./...
-      - run: go build -o kdoctor ./cmd/kdoctor
+- name: Upload SARIF
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
 ```
 
-Add kdoctor to your own workflow:
-
-```yaml
-- name: Quality gate
-  run: |
-    go install github.com/adkd/adkd/cmd/kdoctor@latest
-    kdoctor scan --json --fail-below 80
-```
-
----
-
-## 🏥 Health Score
-
-The score is computed from the mapped findings:
-
-```
-Health Score = 100 - errors*5 - warnings*2 - info*0.5
-```
-
-Use `--fail-below <N>` to break CI when the score drops below your threshold.
-
----
-
-## 🆚 kdoctor vs. Detekt vs. Android Lint
-
-| | kdoctor | Detekt | Android Lint |
-|---|---|---|---|
-| **Scope** | Android / KMP / CMP | Kotlin/JVM | Android-only |
-| **Output** | Score, JSON, SARIF, HTML, MobiAI | SARIF, XML, HTML | XML, HTML |
-| **Rule mapping** | Curated catalog + native Go detectors | Detekt rules only | Lint rules only |
-| **AI fixes** | ✅ Built-in | ❌ | ❌ |
-| **Diff-aware** | ✅ `--diff` | ❌ | ❌ |
-| **Baseline** | ✅ `--baseline` | ✅ | ✅ |
-
----
-
-## 🗺️ Roadmap
-
-- [x] Phase 1 — Inspector CLI with Detekt SARIF
-- [x] Phase 1.5 — 78-rule catalog + FixHint
-- [x] Tier 2 — Gradle plugin + AI fixer scaffold
-- [x] Tier 3 — HTML dashboard + team config overrides
-- [x] Round-2 — Defensive hardening (rulemap, patchguard, diff/baseline paths, qualityprompt, provider cache)
-- [x] Round-3 #9 — CI fast gate + gofmt/vet/race checks
-- [x] Round-3 #11 — `kdoctor fix --mode auto` patch apply + rollback
-- [x] Round-3 #12 — E2E tests on a real Android project
-- [x] Round-3 #13 — Makefile + Dockerfile
-- [x] Round-3 #14 — `kdoctor init` project bootstrapper
-- [x] Round-3 #16 — MobiAI Graph integration end-to-end
-- [ ] v1.0.0 release — pre-built binaries + GitHub release notes
-
-See [`docs/HANDOVER.md`](docs/HANDOVER.md) for the full continuity document.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome. Please make sure your changes pass:
-
+### Conexión con MobiAI Graph Backend
 ```bash
-make lint        # gofmt drift check + go vet
-make test        # run the test suite
-make build       # build the binary
-make smoke       # run fixture smoke tests
+./kdoctor scan --mobiai-url="https://api.mobiai.dev" --mobiai-token="$MOBIAI_TOKEN"
 ```
-
-Read [`docs/HANDOVER.md`](docs/HANDOVER.md) before making substantial changes — it contains the project’s conventions, gotchas, and current state.
 
 ---
 
-## 📄 License
-
-MIT — see [`LICENSE`](LICENSE).
+## 📄 Licencia
+Este proyecto está bajo la Licencia MIT.
