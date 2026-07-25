@@ -44,10 +44,17 @@ jobs:
           set -euo pipefail
           npm install -g 'mobiai@^1.0.0' || true
 
+      - name: Install Detekt CLI
+        run: |
+          mkdir -p /tmp/detekt
+          curl -sSL -o /tmp/detekt/detekt-cli.zip https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8.zip
+          unzip -q /tmp/detekt/detekt-cli.zip -d /tmp/detekt
+          chmod +x /tmp/detekt/detekt-cli-1.23.8/bin/detekt
+
       - name: Run kdoctor scan --mobiai on bad-project
         run: |
           set -euo pipefail
-          ./kdoctor scan --mobiai --project-dir examples/bad-project
+          ./kdoctor scan --mobiai --prefer-standalone --detekt-bin /tmp/detekt/detekt-cli-1.23.8/bin/detekt --project-dir examples/bad-project
           
       - name: Verify findings.jsonl is created
         run: |
