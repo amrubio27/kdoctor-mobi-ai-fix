@@ -47,9 +47,9 @@ jobs:
       - name: Install Detekt CLI
         run: |
           mkdir -p /tmp/detekt
-          curl -sSL -o /tmp/detekt/detekt-cli.zip https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8.zip
+          curl -fsSL -L -o /tmp/detekt/detekt-cli.zip https://github.com/detekt/detekt/releases/download/v1.23.8/detekt-cli-1.23.8.zip
           unzip -q /tmp/detekt/detekt-cli.zip -d /tmp/detekt
-          DETEKT_BIN=$(find /tmp/detekt -name "detekt" -type f | head -n 1)
+          DETEKT_BIN=$(find /tmp/detekt -name "detekt-cli" -type f | head -n 1)
           chmod +x "$DETEKT_BIN"
           echo "DETEKT_BIN=$DETEKT_BIN" >> $GITHUB_ENV
 
