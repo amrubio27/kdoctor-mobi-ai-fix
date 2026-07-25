@@ -89,11 +89,20 @@ func runStandalone(ctx context.Context, opts Options) (string, error) {
 	// lo pasamos con --config. Permite al usuario (o a los test fixtures)
 	// habilitar reglas que detekt-cli desactiva por defecto (HardcodedPassword,
 	// GlobalCoroutineUsage, UnusedImport, etc.).
+	var configFound bool
 	for _, name := range []string{"detekt.yml", "detekt.yaml"} {
 		candidate := filepath.Join(absProjectDir, name)
 		if cfg, err := os.Stat(candidate); err == nil && !cfg.IsDir() {
 			args = append(args, "--config", candidate)
+			configFound = true
 			break
+		}
+	}
+	if !configFound {
+		autoConfig := filepath.Join(os.TempDir(), "kdoctor-auto-detekt.yml")
+		content := "naming:\n  active: true\n  FunctionNaming:\n    active: true\n    ignoreAnnotated:\n      - \"Composable\"\n"
+		if err := os.WriteFile(autoConfig, []byte(content), 0644); err == nil {
+			args = append(args, "--config", autoConfig)
 		}
 	}
 	cmd := exec.CommandContext(ctx, bin, args...)

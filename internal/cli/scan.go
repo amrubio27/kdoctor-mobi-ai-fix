@@ -260,8 +260,9 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 		mapped = diff.FilterFindingsByDiffWithRoot(mapped, diffMap, projectRootForFilter)
 	}
 
-	// 5. Calcular Health Score.
-	score, sum := grader.Score(mapped)
+	// 5. Calcular Health Score con ajuste de densidad por KLOC.
+	totalLines := grader.CountKotlinLines(wd)
+	score, sum := grader.ScoreWithKLOC(mapped, totalLines)
 	report := types.Report{
 		SchemaVersion: types.SchemaVersion,
 		ProjectType:   f.projectType,
