@@ -14,6 +14,7 @@ import (
 
 func NewInitCmd() *cobra.Command {
 	var force bool
+	var withSkills bool
 	var projectType string
 
 	cmd := &cobra.Command{
@@ -22,18 +23,20 @@ func NewInitCmd() *cobra.Command {
 		Long: `kdoctor init detects the project type, generates kdoctor.config.yaml,
 and creates a minimal detekt.yml with the V1 live rules enabled.
 
-Use --type to override auto-detection and --force to overwrite existing files.`,
+Use --type to override auto-detection, --with-skills to generate AI agent rules, and --force to overwrite existing files.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInit(cmd, initFlags{force: force, projectType: projectType})
+			return runInit(cmd, initFlags{force: force, withSkills: withSkills, projectType: projectType})
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite existing kdoctor.config.yaml and detekt.yml")
+	cmd.Flags().BoolVar(&withSkills, "with-skills", false, "generate AI agent rules in .agents/skills/kdoctor-compose/SKILL.md")
 	cmd.Flags().StringVar(&projectType, "type", "", "project type (android, kmp, cmp, compose, jvm, gradle, plain); auto-detected by default")
 	return cmd
 }
 
 type initFlags struct {
 	force       bool
+	withSkills  bool
 	projectType string
 }
 
@@ -94,7 +97,25 @@ func runInit(cmd *cobra.Command, f initFlags) error {
 		created = append(created, gitignorePath)
 	}
 
-	// 4. Summary
+	// 4. .agents/skills/kdoctor-compose/SKILL.md
+	if f.withSkills || pt == "cmp" || pt == "compose" || pt == "android" || pt == "kmp" {
+		skillDir := filepath.Join(wd, ".agents", "skills", "kdoctor-compose")
+		if err := os.MkdirAll(skillDir, 0755); err == nil {
+			skillPath := filepath.Join(skillDir, "SKILL.md")
+			writeSkill := f.force
+			if !writeSkill {
+				_, err := os.Stat(skillPath)
+				writeSkill = os.IsNotExist(err)
+			}
+			if writeSkill {
+				if err := os.WriteFile(skillPath, []byte(composeSkillTemplate()), 0644); err == nil {
+					created = append(created, skillPath)
+				}
+			}
+		}
+	}
+
+	// 5. Summary
 	fmt.Fprintln(cmd.OutOrStdout(), "\nCreated/updated:")
 	for _, p := range created {
 		fmt.Fprintf(cmd.OutOrStdout(), "  ✓ %s\n", p)
@@ -294,4 +315,33 @@ func updateGitignore(path string, force bool) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func composeSkillTemplate() string {
+	return `---
+name: kdoctor-compose
+description: Modern Jetpack Compose, ViewModel state management, and Kotlin K2 quality guidelines enforced by kdoctor.
+---
+
+# kdoctor Modern Compose & Kotlin Rules
+
+When writing or refactoring Kotlin & Jetpack Compose code:
+
+1. **Lifecycle-Aware State Collection**:
+   - ALWAYS prefer ` + "`collectAsStateWithLifecycle()`" + ` over ` + "`collectAsState()`" + ` to avoid collecting flow emissions while in background state.
+
+2. **Atomic ViewModel State Updates**:
+   - ALWAYS use ` + "`_uiState.update { ... }`" + ` instead of ` + "`_uiState.value = ...`" + ` to prevent race conditions in asynchronous code.
+   - ALWAYS expose UI state as read-only ` + "`val uiState: StateFlow<MyUiState> = _uiState.asStateFlow()`" + `.
+
+3. **Compiler K2 Stability & Recomposition**:
+   - Annotate UI state data classes with ` + "`@Immutable`" + ` or ` + "`@Stable`" + `.
+   - Use immutable collections (e.g. ` + "`kotlinx.collections.immutable.ImmutableList`" + `) in Composable parameter signatures.
+
+4. **Lazy Layout Keys**:
+   - ALWAYS provide an explicit ` + "`key`" + ` parameter in ` + "`LazyColumn`" + ` / ` + "`LazyRow`" + ` ` + "`items()``" + ` lambdas to preserve item identity during recompositions.
+
+5. **Modifier Hoisting & Conventions**:
+   - Maintain ` + "`modifier: Modifier = Modifier`" + ` as the first optional parameter of any Composable function.
+`
 }

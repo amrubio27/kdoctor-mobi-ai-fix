@@ -432,6 +432,7 @@ Configuración de ejemplo para un cliente MCP:
 ```
 
 | **20** | UX polish: `--md`, `--summary`, `--verbose` y `detekt.yml` Compose-friendly | ✅ cerrado | Nuevo reporter Markdown (`internal/reporter/markdown`) con `kdoctor scan --md` generando `kdoctor-report.md` y `--md --summary` para versión resumida. Flag `--summary` muestra solo Health Score, summary counts y top-5 clusters en consola (y markdown resumido). Flag `--verbose` muestra salida de detekt; por defecto se ocultan warnings JVM (`sun.misc.Unsafe`). `kdoctor init` ahora genera `detekt.yml` con `naming.FunctionNaming.ignoreAnnotated: ["Composable"]` para evitar falsos positivos de `FunctionNaming` en funciones Composable PascalCase. Tests: `internal/reporter/markdown/markdown_test.go`. Validación: `go vet ./...`, `go test ./...`, `go build -o kdoctor.exe ./cmd/kdoctor` todos pasan. |
+| **21** | Integración de reglas Modern Compose & K2 (inspirado en compose-kotlin-agent-skills) | ✅ cerrado | Promocionadas a `live` reglas clave (`compose-unstable-params`, `lifecycle-collect-as-state-missing`, `arch-public-api-mutable-state`). Enriquecido `systemPrompt` de `qualityprompt` con directivas Compose K2. Añadido flag `--with-skills` a `kdoctor init` para generar `.agents/skills/kdoctor-compose/SKILL.md`. Validación: `go test ./...`, `go vet ./...`, `go build ./...` todos pasan. |
 
 ### Invocaciones nuevas
 
@@ -449,8 +450,8 @@ Configuración de ejemplo para un cliente MCP:
 # Ver salida de detekt (por defecto oculta warnings JVM)
 ./kdoctor.exe scan --verbose --project-dir=D:/Programacion/RickMortyApp
 
-# Bootstrap detekt.yml con FunctionNaming tolerante a @Composable
-./kdoctor.exe init --type=cmp
+# Bootstrap detekt.yml con FunctionNaming tolerante a @Composable y Agent Skill
+./kdoctor.exe init --type=cmp --with-skills
 ```
 
 Antes de tocar el código del repo, cualquier IA debe leer `HONEY.md` y seguir sus guardrails.

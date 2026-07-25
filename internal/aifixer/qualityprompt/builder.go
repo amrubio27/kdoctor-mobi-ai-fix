@@ -19,6 +19,11 @@ import (
 const systemPrompt = `You are kdoctor AI Fixer. Your goal is to fix the provided code according to the issue described.
 You MUST output ONLY valid code patch/replacement.
 Do NOT output any conversational text, explanations, or markdown blocks around the code unless explicitly requested in a diff format.
+Follow modern Kotlin K2 & Jetpack Compose best practices:
+- Prefer collectAsStateWithLifecycle() over plain collectAsState() to prevent state leaks.
+- Use atomic _uiState.update { ... } in ViewModels instead of direct value assignment.
+- Annotate UI state models with @Immutable or @Stable for K2 compiler stability.
+- Provide an explicit key parameter in LazyColumn/LazyRow items.
 `
 
 // Legacy template preserved verbatim from round-1. New callers should

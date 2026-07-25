@@ -80,6 +80,9 @@ func renderReport(r types.Report, w io.Writer, hasTty bool, summaryOnly bool) {
 			}
 		}
 	}
+
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, c(ansiCyan, "💡 Tip: Run 'kdoctor scan --html' for interactive web report or 'kdoctor scan --md' for Markdown."))
 }
 
 func renderTopClusters(w io.Writer, byCluster map[string][]types.Finding, clusters []string, hasTty bool, c func(color, s string) string) {

@@ -41,7 +41,7 @@ type Rule struct {
 var CatalogRules = []Rule{
 	// 5.1 Compose Performance (12)
 	{ID: "compose-missing-key", Cluster: "compose-performance", Severity: "error", Status: "live", FixHint: "Define a unique key for each item in the list using the key parameter."},
-	{ID: "compose-unstable-params", Cluster: "compose-performance", Severity: "error", Status: "planned"},
+	{ID: "compose-unstable-params", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:UnstableCollections", Status: "live", FixHint: "Annotate UI State data classes with @Immutable/@Stable or use ImmutableList to avoid unnecessary recompositions under K2 compiler."},
 	{ID: "compose-derived-state-missing", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-lambda-recomposition", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-heavy-composable", Cluster: "compose-performance", Severity: "info", Status: "planned"},
@@ -63,7 +63,7 @@ var CatalogRules = []Rule{
 	{ID: "coroutine-sharedflow-replay", Cluster: "coroutines", Severity: "info", Status: "planned"},
 	// 5.3 Lifecycle (6)
 	{ID: "lifecycle-context-leak", Cluster: "lifecycle", Severity: "error", Status: "planned"},
-	{ID: "lifecycle-collect-as-state-missing", Cluster: "lifecycle", Severity: "error", Status: "planned"},
+	{ID: "lifecycle-collect-as-state-missing", Cluster: "lifecycle", Severity: "error", DetektRule: "Compose:CollectAsStateWithLifecycle", Status: "live", FixHint: "Replace collectAsState() with collectAsStateWithLifecycle() or repeatOnLifecycle to prevent background state leaks."},
 	{ID: "lifecycle-collect-lifecycle-aware", Cluster: "lifecycle", Severity: "warning", Status: "planned"},
 	{ID: "lifecycle-ondestroy-listener", Cluster: "lifecycle", Severity: "warning", Status: "planned"},
 	{ID: "lifecycle-job-not-cancelled", Cluster: "lifecycle", Severity: "error", Status: "planned"},
@@ -78,7 +78,7 @@ var CatalogRules = []Rule{
 	{ID: "arch-god-class", Cluster: "architecture", Severity: "warning", DetektRule: "TooManyFunctions", Status: "live", FixHint: "Split class by responsibility."},
 	{ID: "arch-circular-dep", Cluster: "architecture", Severity: "error", Status: "planned"},
 	{ID: "arch-feature-module-public-api-bleed", Cluster: "architecture", Severity: "warning", Status: "planned"},
-	{ID: "arch-public-api-mutable-state", Cluster: "architecture", Severity: "error", Status: "planned"},
+	{ID: "arch-public-api-mutable-state", Cluster: "architecture", Severity: "error", DetektRule: "Compose:MutableStateAutoboxing", Status: "live", FixHint: "Expose StateFlow/SharedFlow as read-only (asStateFlow()/asSharedFlow()) and use atomic _uiState.update { ... } in ViewModels."},
 	{ID: "arch-data-class-with-logic", Cluster: "architecture", Severity: "warning", Status: "planned"},
 	{ID: "arch-named-arg-required", Cluster: "architecture", Severity: "info", Status: "planned"},
 	{ID: "arch-utility-function-should-be-extension", Cluster: "architecture", Severity: "info", Status: "planned"},
@@ -150,14 +150,25 @@ var CatalogRules = []Rule{
 	// 5.11.5 formatting (2)
 	{ID: "formatting-newline-at-eof", Cluster: "formatting", Severity: "info", DetektRule: "NewLineAtEndOfFile", Status: "live", FixHint: "Add a trailing newline at EOF."},
 	{ID: "formatting-max-line-length", Cluster: "formatting", Severity: "warning", DetektRule: "MaxLineLength", Status: "live", FixHint: "Break the line below 120 chars (default detekt threshold)."},
+	// Phase 2 Expansion (12)
+	{ID: "compose-derived-state-unremembered", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:DerivedStateWithoutRemember", Status: "live", FixHint: "Wrap derivedStateOf { ... } inside remember { ... } to prevent recalculation on every recomposition."},
+	{ID: "compose-unstable-collection-params", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:UnstableCollections", Status: "live", FixHint: "Replace standard Kotlin List/Set/Map with ImmutableList or annotate UI state with @Immutable."},
+	{ID: "compose-launcheffect-unit-key", Cluster: "compose-performance", Severity: "warning", Status: "planned", FixHint: "Avoid LaunchedEffect(Unit) for dynamic data loads; bind the key to state or viewmodel events."},
+	{ID: "compose-multiple-emitters-in-composable", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:MultipleEmitters", Status: "live", FixHint: "A Composable should emit only one main UI node tree to preserve layout hierarchy integrity."},
+	{ID: "coroutine-naked-try-catch-in-flow", Cluster: "coroutines", Severity: "warning", Status: "planned", FixHint: "Replace try-catch around Flow operators with the idiomatic .catch { ... } operator."},
+	{ID: "coroutine-suspend-fun-naming", Cluster: "coroutines", Severity: "info", DetektRule: "SuspendFunNaming", Status: "live", FixHint: "Suspend functions should be named clearly (e.g. fetchUserData) without Async suffix."},
+	{ID: "coroutine-exception-handler-missing", Cluster: "coroutines", Severity: "warning", Status: "planned", FixHint: "CoroutineScope launches without SupervisorJob or CoroutineExceptionHandler can crash parent job."},
+	{ID: "arch-usecase-multiple-public-methods", Cluster: "architecture", Severity: "warning", Status: "planned", FixHint: "UseCase classes should have a single public operator fun invoke(...) or execute() method."},
+	{ID: "kmp-expect-actual-mutable-state", Cluster: "kmp", Severity: "warning", Status: "planned", FixHint: "Expect declarations in commonMain should avoid exposing mutable platform-specific state directly."},
+	{ID: "dead-commented-code", Cluster: "dead-code", Severity: "info", DetektRule: "CommentOverPrivateFunction", Status: "live", FixHint: "Remove commented-out code blocks to improve codebase readability."},
 }
 
 func main() {
 	out := flag.String("out", "rules/metadata.json", "output path for the generated metadata.json")
 	flag.Parse()
 
-	if len(CatalogRules) != 78 {
-		fmt.Fprintf(os.Stderr, "ERROR: expected 78 rules (64 V1 + 14 default detekt), got %d\n", len(CatalogRules))
+	if len(CatalogRules) != 88 {
+		fmt.Fprintf(os.Stderr, "ERROR: expected 88 rules, got %d\n", len(CatalogRules))
 		os.Exit(1)
 	}
 

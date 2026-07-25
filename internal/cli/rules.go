@@ -1,9 +1,8 @@
-// kdoctor rules: lista todas las reglas del catálogo con status.
 package cli
 
 import (
 	"fmt"
-	"sort"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -13,32 +12,64 @@ import (
 func NewRulesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rules",
-		Short: "List all rules in the catalog",
+		Short: "Manage and inspect kdoctor rules catalog",
+		Long:  `Inspect available rules or update the rules catalog from remote GitHub repository into local user cache.`,
+	}
+
+	cmd.AddCommand(newRulesUpdateCmd())
+	cmd.AddCommand(newRulesListCmd())
+
+	return cmd
+}
+
+func newRulesUpdateCmd() *cobra.Command {
+	var url string
+
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "Update rules catalog from remote GitHub repository to local user cache",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := resolveRulesPath()
+			fmt.Fprintln(cmd.OutOrStdout(), "Fetching latest rules catalog...")
+			count, path, err := rulemap.FetchLatestRules(url)
 			if err != nil {
-				return err
+				return fmt.Errorf("update failed: %w", err)
 			}
-			rules, err := rulemap.LoadRules(path)
-			if err != nil {
-				return err
-			}
-			sort.Slice(rules, func(i, j int) bool { return rules[i].ID < rules[j].ID })
-			live, planned := 0, 0
-			for _, r := range rules {
-				fmt.Fprintf(cmd.OutOrStdout(), "  %s [%s] %s — %s\n",
-					r.ID, r.Cluster, r.Severity, r.Status)
-				if r.Status == "live" {
-					live++
-				} else {
-					planned++
-				}
-			}
-			fmt.Fprintf(cmd.OutOrStdout(),
-				"\nTotal: %d rules (%d live, %d planned)\n",
-				len(rules), live, planned)
+			fmt.Fprintf(cmd.OutOrStdout(), "Successfully updated %d rules into local cache:\n  ✓ %s\n", count, path)
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&url, "url", "", "custom remote URL for metadata.json")
+	return cmd
+}
+
+func newRulesListCmd() *cobra.Command {
+	var projectDir string
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all loaded rules and their current source (cache, project, or embedded)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if projectDir == "" {
+				projectDir, _ = os.Getwd()
+			}
+			res, err := rulemap.LoadRulesCascade(projectDir, "")
+			if err != nil {
+				return fmt.Errorf("load rules: %w", err)
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "Rule source active: %s (%s)\n", res.Source, res.Path)
+			fmt.Fprintf(cmd.OutOrStdout(), "Total rules loaded: %d\n\n", len(res.Rules))
+
+			fmt.Fprintf(cmd.OutOrStdout(), "%-35s %-20s %-10s %-8s\n", "RULE ID", "CLUSTER", "SEVERITY", "STATUS")
+			fmt.Fprintf(cmd.OutOrStdout(), "--------------------------------------------------------------------------------\n")
+			for _, r := range res.Rules {
+				fmt.Fprintf(cmd.OutOrStdout(), "%-35s %-20s %-10s %-8s\n", r.ID, r.Cluster, r.Severity, r.Status)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&projectDir, "project-dir", "", "project directory to check for local overrides")
 	return cmd
 }

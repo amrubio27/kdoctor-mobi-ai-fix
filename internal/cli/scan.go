@@ -23,6 +23,7 @@ import (
 	"github.com/adkd/adkd/internal/core/types"
 	"github.com/adkd/adkd/internal/mobiai"
 	"github.com/adkd/adkd/internal/reporter/console"
+	htmlrep "github.com/adkd/adkd/internal/reporter/html"
 	jsonrep "github.com/adkd/adkd/internal/reporter/jsonreporter"
 	mdrep "github.com/adkd/adkd/internal/reporter/markdown"
 	sarifrep "github.com/adkd/adkd/internal/reporter/sarif"
@@ -77,6 +78,8 @@ type scanFlags struct {
 	asMD              bool
 	summary           bool
 	verbose           bool
+	updateRules       bool
+	asHTML            bool
 }
 
 func NewScanCmd() *cobra.Command {
@@ -98,7 +101,9 @@ Por defecto: rich console.
 --diff ref          : filtrar por líneas modificadas/añadidas respecto al git ref
 --baseline path     : suprimir findings listados en el baseline.xml
 --md                : generar kdoctor-report.md en el directorio del proyecto
+--html              : generar kdoctor-report.html interactivo en el directorio del proyecto
 --summary           : mostrar solo resumen ejecutivo y top clusters
+--update-rules      : actualizar reglas desde GitHub antes de escanear
 --verbose           : mostrar salida de detekt (por defecto se ocultan los warnings JVM)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateOutputFlags(f); err != nil {
@@ -122,7 +127,9 @@ Por defecto: rich console.
 	cmd.Flags().StringVar(&f.mobiaiToken, "mobiai-token", os.Getenv("KDOCTOR_MOBIAI_TOKEN"), "MobiAI Graph bearer token (also env KDOCTOR_MOBIAI_TOKEN)")
 	cmd.Flags().BoolVar(&f.mobiaiFailOnError, "mobiai-fail-on-error", false, "fail the scan if the MobiAI Graph upload fails")
 	cmd.Flags().BoolVar(&f.asMD, "md", false, "generate kdoctor-report.md in the project directory")
+	cmd.Flags().BoolVar(&f.asHTML, "html", false, "generate interactive kdoctor-report.html in the project directory")
 	cmd.Flags().BoolVar(&f.summary, "summary", false, "show only summary and top clusters")
+	cmd.Flags().BoolVar(&f.updateRules, "update-rules", false, "update rules catalog from remote GitHub before scanning")
 	cmd.Flags().BoolVar(&f.verbose, "verbose", false, "show detekt output (default hides JVM warnings)")
 	return cmd
 }
@@ -137,14 +144,20 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 		wd = cwd
 	}
 
-	// 1. Cargar reglas (single source of truth).
-	rulesPath, err := resolveRulesPath()
-	if err != nil {
-		return err
+	if f.updateRules {
+		if _, _, err := rulemap.FetchLatestRules(""); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to update rules from remote: %v\n", err)
+		}
 	}
-	ruleCatalog, err := rulemap.LoadRules(rulesPath)
+
+	// 1. Cargar reglas (cascada offline-first: proyecto > cache usuario > local > embedded).
+	loadResult, err := rulemap.LoadRulesCascade(wd, "")
 	if err != nil {
 		return fmt.Errorf("load rules: %w", err)
+	}
+	ruleCatalog := loadResult.Rules
+	if f.verbose {
+		fmt.Fprintf(cmd.OutOrStdout(), "Loaded %d rules from %s (%s)\n", len(ruleCatalog), loadResult.Source, loadResult.Path)
 	}
 
 	// 2. Detectar modo y correr Detekt.
@@ -273,6 +286,23 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 		return sarifrep.Write(report, target)
 	case f.asMD:
 		return renderMarkdown(report, wd, target, f.outputPath, f.summary)
+	case f.asHTML:
+		htmlTarget := target
+		outPath := f.outputPath
+		if outPath == "" {
+			outPath = filepath.Join(wd, "kdoctor-report.html")
+			fHtml, err := os.Create(outPath)
+			if err != nil {
+				return fmt.Errorf("create html report file: %w", err)
+			}
+			defer func() { _ = fHtml.Close() }()
+			htmlTarget = fHtml
+		}
+		if err := htmlrep.RenderHTML(report, htmlTarget); err != nil {
+			return fmt.Errorf("render html report: %w", err)
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "✓ Interactive HTML web report generated: %s\n", outPath)
+		return nil
 	default:
 		hasTty := isTerminal(cmd.OutOrStdout())
 		if f.summary {

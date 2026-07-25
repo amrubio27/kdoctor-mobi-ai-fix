@@ -1,0 +1,39 @@
+name: Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build Multiplatform Binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Cross-compile Binaries
+        run: |
+          mkdir -p dist
+          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/kdoctor-windows-amd64.exe ./cmd/kdoctor
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/kdoctor-darwin-amd64 ./cmd/kdoctor
+          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/kdoctor-darwin-arm64 ./cmd/kdoctor
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/kdoctor-linux-amd64 ./cmd/kdoctor
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/kdoctor-windows-amd64.exe
+            dist/kdoctor-darwin-amd64
+            dist/kdoctor-darwin-arm64
+            dist/kdoctor-linux-amd64
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
