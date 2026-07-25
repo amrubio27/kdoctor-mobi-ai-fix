@@ -7,78 +7,88 @@
 ## 🚀 Características Clave
 
 - 📊 **Health Score (0-100)**: Algoritmo determinista de puntuación: `100 - (errors×5) - (warnings×2) - (info×0.5)`.
-- 🔍 **78 Reglas de Calidad Catalogadas**:
-  - 11 Reglas V1 Live (seguridad, corrutinas, fugas de memoria, arquitectura God Class).
-  - 14 Mapeos directos de Detekt SARIF 2.1.0.
-  - Reglas nativas en Go (sin JVM overhead para escaneo regex de PII, WebViews inseguros, Dispatchers hardcoded y llaves de Compose).
+- 🔍 **88 Reglas de Calidad Catalogadas**:
+  - Reglas avanzadas de Jetpack Compose (recomposiciones, claves en listas, DerivedState, Compose Rules).
+  - Reglas de Corrutinas & Flow (manejadores de excepciones, testeabilidad de Dispatchers, operadores de Flow).
+  - Reglas de Clean Architecture (encapsulación de ViewModels, métodos de UseCases) y KMP.
+- 📦 **Instalación en 1 Línea (Zero Build)**: Scripts de instalación directa para Windows, macOS y Linux sin necesidad de compilar.
+- 🔄 **Reglas Modulares Offline-First**: Catálogo embebido en el ejecutable, con caché local persistente (`~/.kdoctor/rules/metadata.json`) y actualización remota con un clic (`kdoctor rules update`).
+- 🌐 **Reporte Web HTML Interactivo (`--html`)**: Genera un dashboard web autocontenido (`kdoctor-report.html`) en Dark Mode con medidor de score, filtros instantáneos por severidad/cluster y sugerencias de remediación (`FixHint`).
+- 📑 **Reportes Multi-formato**: Consola TUI interactiva con avisos explicativos, Markdown (`--md`), HTML interactivo (`--html`), JSON Schema v3 (`--json`) y SARIF 2.1.0 (`--sarif`).
 - 🛠️ **Integración MCP Natively Built-in (`kdoctor-mcp`)**: Servidor JSON-RPC 2.0 sobre `stdio` para consumo directo por Cursor, Claude Code y agencias MobiAI.
 - 🤖 **AI Quality Fixer (`kdoctor fix --ai`)**: Construye prompts enriquecidos con contexto relativo de código (±10 líneas) e incluye **Patchguard** (lexer Kotlin que previene syntax breaks y realiza rollback automático).
-- 📑 **Reportes Multi-formato**: Consola TUI interactiva, Markdown (`kdoctor scan --md`), JSON Schema v3 (`--json`) y SARIF 2.1.0 (`--sarif`) para GitHub Code Scanning.
-- 🌐 **Integración MobiAI Graph**: Exportación directa de telemetría de hallazgos vía API REST o feed local `.mobiai/graph/findings.jsonl`.
-- ⚙️ **Configuración Flexible (`kdoctor.config.yaml`)**: Anulación de severidades por regla o por cluster, exclusiones personalizadas y baselines XML (`--baseline`).
 
 ---
 
-## 💻 Requisitos Previos
+## 💻 Instalación Rápida (One-Liner Installers)
 
-- **Go 1.22+** (para compilación).
-- **JDK 17+** (necesario para ejecutar el motor `detekt` subyacente).
-- Binario `detekt-cli` (opcionalmente gestionado o especificado mediante `--detekt-bin`).
+Instala `kdoctor` directamente en tu sistema sin necesidad de instalar Go ni compilar:
+
+### 🔹 Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/amrubio27/kdoctor-mobi-ai-fix/main/install.ps1 | iex
+```
+
+### 🔹 macOS / Linux (Bash / Zsh)
+```bash
+curl -fsSL https://raw.githubusercontent.com/amrubio27/kdoctor-mobi-ai-fix/main/install.sh | sh
+```
 
 ---
 
-## 📦 Instalación
-
-### Opción A: Compilación desde código fuente
+### Opción Alternativa: Compilación desde código fuente
 ```bash
 git clone https://github.com/amrubio27/kdoctor-mobi-ai-fix.git
 cd kdoctor-mobi-ai-fix
-make build
-# Genera kdoctor.exe y kdoctor-mcp.exe
-```
-
-### Opción B: Docker
-```bash
-docker build -t kdoctor .
-docker run --rm -v $(pwd):/workspace kdoctor scan --project-dir=/workspace
+go build -o kdoctor.exe ./cmd/kdoctor
 ```
 
 ---
 
 ## 🏁 Guía de Uso Rápido (Quickstart)
 
-### 1. Verificar Entorno
+### 1. Inicializar Proyecto
+Genera la configuración y exenciones adaptadas al stack (`android`, `kmp`, `cmp`, `compose`):
 ```bash
-./kdoctor doctor
+kdoctor init --type=cmp
 ```
 
-### 2. Inicializar Proyecto
-Genera archivos de configuración adaptados al stack (`android`, `kmp`, `cmp`, `compose`):
+### 2. Escanear un Proyecto (Consola)
 ```bash
-./kdoctor init --type=kmp --with-skills
+kdoctor scan --project-dir=/ruta/a/tu/proyecto
 ```
 
-### 3. Escanear un Proyecto
+### 3. Generar Reporte Web HTML Interactivo
 ```bash
-./kdoctor scan --project-dir=/ruta/a/tu/proyecto
+kdoctor scan --html --project-dir=/ruta/a/tu/proyecto
+# Abre el archivo kdoctor-report.html generado en tu navegador
 ```
 
-### 4. Generar Reporte Markdown o Resumen Ejecutivo
+### 4. Generar Reporte Markdown o JSON
 ```bash
 # Reporte completo en Markdown
-./kdoctor scan --md --project-dir=/ruta/a/tu/proyecto
+kdoctor scan --md --project-dir=/ruta/a/tu/proyecto
 
-# Resumen ejecutivo en consola (Score + Top Clusters)
-./kdoctor scan --summary --project-dir=/ruta/a/tu/proyecto
+# Reporte JSON estructurado para agentes de IA
+kdoctor scan --json --project-dir=/ruta/a/tu/proyecto
 ```
 
-### 5. Reparación Asistida por IA
+### 5. Inspeccionar o Actualizar Catálogo de Reglas
+```bash
+# Listar las 88 reglas y su fuente de carga
+kdoctor rules list
+
+# Sincronizar las últimas reglas lanzadas en GitHub
+kdoctor rules update
+```
+
+### 6. Reparación Asistida por IA
 ```bash
 # Sugerir arreglos en fixes.md
-./kdoctor fix --ai
+kdoctor fix --ai
 
 # Aplicar arreglos automáticamente con validación Patchguard
-./kdoctor fix --ai --mode=auto
+kdoctor fix --ai --mode=auto
 ```
 
 ---
@@ -100,16 +110,6 @@ Para integrar `kdoctor` en Cursor, Claude Code o MobiAI CLI, añade la siguiente
 }
 ```
 
-### Herramientas MCP Disponibles
-
-| Tool MCP | Descripción |
-|---|---|
-| `kdoctor_scan` | Ejecuta análisis estático y devuelve score + hallazgos JSON |
-| `kdoctor_rules` | Lista el catálogo de reglas y sus taxonomías |
-| `kdoctor_init` | Configura archivos `kdoctor.config.yaml` y `detekt.yml` |
-| `kdoctor_doctor` | Valida dependencias del sistema |
-| `kdoctor_fix_suggest` | Genera prompt de reparación con contexto de código |
-
 ---
 
 ## ⚙️ Configuración del Proyecto (`kdoctor.config.yaml`)
@@ -118,7 +118,7 @@ Ejemplo de personalización de reglas por equipo:
 
 ```yaml
 project:
-  type: kmp
+  type: cmp
   excludes:
     - "**/build/**"
     - "**/.gradle/**"
@@ -130,28 +130,22 @@ overrides:
   # Cambiar severidad de cluster
   security: warning
   
-  # Override por regla específica (precede sobre cluster)
-  sec-log-pii: error
+  # Override por regla específica
+  coroutine-dispatchers-hardcoded: info
 ```
 
 ---
 
-## 🔗 Integración CI/CD y MobiAI Graph
+## 🔗 Integración CI/CD y GitHub Actions
 
-### En GitHub Actions
 ```yaml
 - name: Run kdoctor Scan
-  run: ./kdoctor scan --sarif --out=results.sarif
+  run: kdoctor scan --sarif --out=results.sarif
 
-- name: Upload SARIF
+- name: Upload SARIF to GitHub Code Scanning
   uses: github/codeql-action/upload-sarif@v3
   with:
     sarif_file: results.sarif
-```
-
-### Conexión con MobiAI Graph Backend
-```bash
-./kdoctor scan --mobiai-url="https://api.mobiai.dev" --mobiai-token="$MOBIAI_TOKEN"
 ```
 
 ---
