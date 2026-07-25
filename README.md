@@ -6,7 +6,8 @@
 
 ## 🚀 Características Clave
 
-- 📊 **Health Score (0-100)**: Algoritmo determinista de puntuación: `100 - (errors×5) - (warnings×2) - (info×0.5)`.
+- 📊 **Health Score (0-100) Proporcional por KLOC**: Algoritmo ajustado por densidad de defectos por miles de líneas de código Kotlin (KLOC), garantizando evaluaciones justas tanto en micro-proyectos como en grandes monorepositorios.
+- ⚡ **Auto-configuración en Memoria**: Exención automática para funciones `@Composable` en proyectos recién clonados sin requerir configuración manual previa de `detekt.yml`.
 - 🔍 **88 Reglas de Calidad Catalogadas**:
   - Reglas avanzadas de Jetpack Compose (recomposiciones, claves en listas, DerivedState, Compose Rules).
   - Reglas de Corrutinas & Flow (manejadores de excepciones, testeabilidad de Dispatchers, operadores de Flow).
