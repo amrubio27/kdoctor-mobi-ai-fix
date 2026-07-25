@@ -54,23 +54,25 @@ kdoctor init --type=cmp
 ```
 
 ### 2. Escanear un Proyecto (Consola)
+Si estás dentro del directorio del proyecto, simplemente ejecuta:
 ```bash
-kdoctor scan --project-dir=/ruta/a/tu/proyecto
+kdoctor scan
 ```
+*(Opcionalmente puedes pasar la ruta como argumento: `kdoctor scan /ruta/a/tu/proyecto` o usar `--project-dir=/ruta`).*
 
 ### 3. Generar Reporte Web HTML Interactivo
 ```bash
-kdoctor scan --html --project-dir=/ruta/a/tu/proyecto
-# Abre el archivo kdoctor-report.html generado en tu navegador
+kdoctor scan --html
+# Genera y abre kdoctor-report.html en el directorio actual
 ```
 
 ### 4. Generar Reporte Markdown o JSON
 ```bash
 # Reporte completo en Markdown
-kdoctor scan --md --project-dir=/ruta/a/tu/proyecto
+kdoctor scan --md
 
 # Reporte JSON estructurado para agentes de IA
-kdoctor scan --json --project-dir=/ruta/a/tu/proyecto
+kdoctor scan --json
 ```
 
 ### 5. Inspeccionar o Actualizar Catálogo de Reglas

@@ -136,6 +136,9 @@ Por defecto: rich console.
 
 func runScan(cmd *cobra.Command, f *scanFlags) error {
 	wd := f.projectDir
+	if wd == "" && len(cmd.Flags().Args()) > 0 {
+		wd = cmd.Flags().Args()[0]
+	}
 	if wd == "" {
 		cwd, err := os.Getwd()
 		if err != nil {

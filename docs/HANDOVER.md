@@ -8,7 +8,7 @@
 
 ## 1. TL;DR (1 párrafo)
 
-**kdoctor** es un CLI en Go para auditar calidad de proyectos Android / KMP / CMP. Inspirado en `react-doctor`. Reutiliza el binario `detekt` como motor de análisis estático, parsea su salida SARIF 2.1, mapea reglas Detekt a reglas kdoctor (78 reglas: 11 V1 live + 53 V1 planned + 14 default-detekt mappings Phase 1.5), calcula un **Health Score 0-100** y emite reportes en consola/JSON/SARIF. Naming final fijado en `kdoctor` (anteriormente `adkd`).
+**kdoctor** es un CLI en Go para auditar calidad de proyectos Android / KMP / CMP. Inspirado en `react-doctor`. Reutiliza el binario `detekt` como motor de análisis estático, parsea su salida SARIF 2.1, mapea reglas Detekt a reglas kdoctor (88 reglas catalogadas), calcula un **Health Score 0-100** y emite reportes en consola TUI, HTML interactivo (`--html`), Markdown (`--md`), JSON Schema v3 (`--json`) y SARIF 2.1 (`--sarif`). Incluye instaladores directos en 1 línea (`install.ps1`/`install.sh`), arquitectura de reglas modular offline-first (`go:embed` + caché local `~/.kdoctor/rules/metadata.json`) y resolución de directorio CWD por defecto. Naming final fijado en `kdoctor`.
 
 ---
 
