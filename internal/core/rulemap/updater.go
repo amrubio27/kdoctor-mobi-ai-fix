@@ -12,13 +12,17 @@ import (
 	"github.com/adkd/adkd/internal/core/types"
 )
 
-const DefaultRulesURL = "https://raw.githubusercontent.com/adkd/adkd/main/rules/metadata.json"
+const DefaultRulesURL = "https://raw.githubusercontent.com/amrubio27/kdoctor-mobi-ai-fix/main/rules/metadata.json"
 
-// FetchLatestRules descarga el archivo metadata.json desde remoteURL (o la URL por defecto),
+// FetchLatestRules descarga el archivo metadata.json desde remoteURL (o KDOCTOR_RULES_URL o la URL por defecto),
 // valida que contenga reglas válidas y lo guarda en el directorio de caché local (~/.kdoctor/rules/metadata.json).
 func FetchLatestRules(remoteURL string) (int, string, error) {
 	if remoteURL == "" {
-		remoteURL = DefaultRulesURL
+		if envURL := os.Getenv("KDOCTOR_RULES_URL"); envURL != "" {
+			remoteURL = envURL
+		} else {
+			remoteURL = DefaultRulesURL
+		}
 	}
 
 	client := &http.Client{

@@ -15,8 +15,8 @@ func TestRootVersion(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("execute --version: %v", err)
 	}
-	if !strings.Contains(buf.String(), "0.2.0") {
-		t.Fatalf("expected 0.2.0 in version output, got:\n%s", buf.String())
+	if !strings.Contains(buf.String(), "0.5.0") {
+		t.Fatalf("expected 0.5.0 in version output, got:\n%s", buf.String())
 	}
 }
 
