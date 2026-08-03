@@ -44,11 +44,11 @@ var CatalogRules = []Rule{
 	{ID: "compose-unstable-params", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:UnstableCollections", Status: "live", FixHint: "Annotate UI State data classes with @Immutable/@Stable or use ImmutableList to avoid unnecessary recompositions under K2 compiler."},
 	{ID: "compose-derived-state-missing", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-lambda-recomposition", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
-	{ID: "compose-heavy-composable", Cluster: "compose-performance", Severity: "info", Status: "planned"},
+	{ID: "compose-heavy-composable", Cluster: "compose-performance", Severity: "info", Status: "live", FixHint: "Modularize large Composable functions (>80 lines) into smaller reusable UI components."},
 	{ID: "compose-remember-missing", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:ReusedModifierInstance", Status: "live", FixHint: "Wrap mutable state in remember { mutableStateOf(...) }."},
 	{ID: "compose-state-hoisting", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ModifierHeightWithText", Status: "live", FixHint: "Move state up and receive callbacks down."},
 	{ID: "compose-modifier-frequent-changes", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ReusedModifierInstance", Status: "live", FixHint: "Hoist the Modifier to a parameter or remember it."},
-	{ID: "compose-graphics-layer", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
+	{ID: "compose-graphics-layer", Cluster: "compose-performance", Severity: "warning", Status: "live", FixHint: "Use graphicsLayer { ... } or lambda-based Modifier parameters for frequently changing animation states to skip composition and layout phases."},
 	{ID: "compose-list-animated", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-side-effect-in-compose", Cluster: "compose-performance", Severity: "error", Status: "planned"},
 	{ID: "compose-runtime-import-bleeding", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:ComposableNaming", Status: "live", FixHint: "Don't import compose.runtime.* outside @Composable functions."},
@@ -84,7 +84,7 @@ var CatalogRules = []Rule{
 	{ID: "arch-utility-function-should-be-extension", Cluster: "architecture", Severity: "info", Status: "planned"},
 	{ID: "arch-internal-in-public-api", Cluster: "architecture", Severity: "error", DetektRule: "InvalidPackageDeclaration", Status: "live", FixHint: "Do not expose internal types in public API."},
 	{ID: "arch-package-cycles-kmp", Cluster: "architecture", Severity: "error", Status: "planned"},
-	{ID: "arch-presentation-depends-on-data", Cluster: "architecture", Severity: "error", Status: "planned"},
+	{ID: "arch-presentation-depends-on-data", Cluster: "architecture", Severity: "error", Status: "live", FixHint: "Presentation layer (@Composable/ViewModel) must not depend on Data layer (data.*, DataSource, DAO, Api, RepositoryImpl). Access data through UseCases or Repository interfaces."},
 	// 5.6 Accessibility (5)
 	{ID: "a11y-content-description", Cluster: "accessibility", Severity: "error", Status: "planned"},
 	{ID: "a11y-click-target-size", Cluster: "accessibility", Severity: "warning", Status: "planned"},
@@ -158,17 +158,28 @@ var CatalogRules = []Rule{
 	{ID: "coroutine-naked-try-catch-in-flow", Cluster: "coroutines", Severity: "warning", Status: "planned", FixHint: "Replace try-catch around Flow operators with the idiomatic .catch { ... } operator."},
 	{ID: "coroutine-suspend-fun-naming", Cluster: "coroutines", Severity: "info", DetektRule: "SuspendFunNaming", Status: "live", FixHint: "Suspend functions should be named clearly (e.g. fetchUserData) without Async suffix."},
 	{ID: "coroutine-exception-handler-missing", Cluster: "coroutines", Severity: "warning", Status: "planned", FixHint: "CoroutineScope launches without SupervisorJob or CoroutineExceptionHandler can crash parent job."},
-	{ID: "arch-usecase-multiple-public-methods", Cluster: "architecture", Severity: "warning", Status: "planned", FixHint: "UseCase classes should have a single public operator fun invoke(...) or execute() method."},
+	{ID: "arch-usecase-multiple-public-methods", Cluster: "architecture", Severity: "warning", Status: "live", FixHint: "UseCase classes should have a single public operator fun invoke(...) or execute() method."},
 	{ID: "kmp-expect-actual-mutable-state", Cluster: "kmp", Severity: "warning", Status: "planned", FixHint: "Expect declarations in commonMain should avoid exposing mutable platform-specific state directly."},
 	{ID: "dead-commented-code", Cluster: "dead-code", Severity: "info", DetektRule: "CommentOverPrivateFunction", Status: "live", FixHint: "Remove commented-out code blocks to improve codebase readability."},
+	{ID: "arch-viewmodel-contract", Cluster: "architecture", Severity: "warning", Status: "live", FixHint: "ViewModels must receive UseCases. Repositories (interfaces) are allowed ONLY for passthrough UseCases without extra business logic."},
+	{ID: "arch-usecase-contract", Cluster: "architecture", Severity: "warning", Status: "live", FixHint: "UseCases must depend only on domain Repository interfaces and expose a single execution method (operator fun invoke / execute)."},
+	{ID: "arch-misplaced-domain-logic", Cluster: "architecture", Severity: "warning", Status: "live", FixHint: "Move domain/business logic (complex calculations, business validations) from ViewModel or Composable into a UseCase."},
+	{ID: "arch-misplaced-data-logic", Cluster: "architecture", Severity: "error", Status: "live", FixHint: "Move data access, SQL queries, or HTTP parsing logic from ViewModel/UseCase into RepositoryImpl or DataSource."},
+	{ID: "arch-model-mapping-leak", Cluster: "architecture", Severity: "warning", Status: "live", FixHint: "Do not leak Data DTOs/Entities to Domain/UI. Use Mappers to transform Data -> Domain -> UiModel."},
+	{ID: "error-handling-layer-mapping", Cluster: "error-handling", Severity: "warning", Status: "live", FixHint: "Catch specific Data exceptions (Network/DB), map them to Domain Result/Exception, and expose explicit UiState.Error for presentation."},
+	{ID: "arch-viewmodel-mvi-suggestion", Cluster: "architecture", Severity: "info", Status: "live", FixHint: "Managing multiple disjoint StateFlows increases complexity. Consider MVI architecture (_uiState.update { ... } with a unified UiState data class)."},
+	{ID: "compose-recomposition-optimizer", Cluster: "compose-performance", Severity: "warning", Status: "live", FixHint: "Prevent unnecessary recompositions: break down large Composables (>80 lines), use lambda modifiers/graphicsLayer, and annotate state with @Immutable."},
+	{ID: "ui-hardcoded-strings", Cluster: "clean-code", Severity: "info", Status: "live", FixHint: "Extract hardcoded UI text to stringResource(R.string...) for localization, testing, and reuse."},
+	{ID: "testability-direct-instantiation", Cluster: "testing", Severity: "error", Status: "live", FixHint: "Inject dependencies through constructors (Hilt/Koin/Manual DI) instead of instantiating concrete RepositoryImpl or Services directly."},
+	{ID: "arch-udf-sealed-events", Cluster: "architecture", Severity: "info", Status: "live", FixHint: "Use a sealed interface (UiEvent/UiAction) to handle UI actions cleanly in a Unidirectional Data Flow."},
 }
 
 func main() {
 	out := flag.String("out", "rules/metadata.json", "output path for the generated metadata.json")
 	flag.Parse()
 
-	if len(CatalogRules) != 88 {
-		fmt.Fprintf(os.Stderr, "ERROR: expected 88 rules, got %d\n", len(CatalogRules))
+	if len(CatalogRules) != 99 {
+		fmt.Fprintf(os.Stderr, "ERROR: expected 99 rules, got %d\n", len(CatalogRules))
 		os.Exit(1)
 	}
 

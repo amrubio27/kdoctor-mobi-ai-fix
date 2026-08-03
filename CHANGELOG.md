@@ -5,6 +5,27 @@ All notable changes to kdoctor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] — 2026-08-03
+
+### Added & Refactored (Clean Architecture, Compose Performance & Continuous Health Score)
+
+- **Continuous Health Score Algorithm (v0.4)**: Eliminated the 300-line cliff with smooth continuous scaling ($\max(1.0, \sqrt{\text{KLOC}})$). Cluster-weighted severity scaling (Security 2.0x, Architecture 1.5x, Coroutines/Memory 1.25x, UI 0.75x). Protected critical Security/Architecture errors from KLOC dilution, capped total Info penalty at 10.0 pts, and applied diminishing returns per (File, Rule) pair.
+- **Clean Architecture & SOLID Rules**: Added 11 new native Go detectors:
+  - `arch-presentation-depends-on-data`: Prevents presentation layer from depending directly on data layer.
+  - `arch-viewmodel-contract`: Enforces UseCases in ViewModels (permits interface Repositories ONLY for passthrough UseCases).
+  - `arch-usecase-contract`: Enforces single public function (`invoke`/`execute`) and domain interface dependencies.
+  - `arch-misplaced-domain-logic` & `arch-misplaced-data-logic`: Detects domain logic in UI/ViewModel and data/SQL logic in UseCases.
+  - `arch-model-mapping-leak`: Enforces `DataModel` -> `DomainModel` -> `UiModel` mapping pipeline.
+  - `error-handling-layer-mapping`: Maps Data exceptions to Domain Result and explicit `UiState.Error`.
+  - `arch-viewmodel-mvi-suggestion`: Recommends MVI pattern when managing 3+ disjoint StateFlows.
+  - `testability-direct-instantiation`: Detects direct instantiation of concrete repositories/services without DI.
+  - `arch-udf-sealed-events`: Suggests `sealed interface UiEvent` for Unidirectional Data Flow.
+- **Compose Performance & UI**:
+  - `compose-graphics-layer`: Enforces `graphicsLayer { ... }` or lambda modifiers for dynamic animation states.
+  - `compose-heavy-composable`: Warns on large `@Composable` functions (>80 lines) for UI decomposition.
+  - `compose-recomposition-optimizer`: Detects unstable collection parameters.
+  - `ui-hardcoded-strings`: Detects hardcoded UI strings in `Text(...)`.
+
 ## [v1.0.0] — 2026-07-19
 
 ### Initial Stable Release

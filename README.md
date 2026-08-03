@@ -6,12 +6,13 @@
 
 ## 🚀 Características Clave
 
-- 📊 **Health Score (0-100) Proporcional por KLOC**: Algoritmo ajustado por densidad de defectos por miles de líneas de código Kotlin (KLOC), garantizando evaluaciones justas tanto en micro-proyectos como en grandes monorepositorios.
+- 📊 **Health Score Continuo (0-100) y Calibrado por KLOC**: Algoritmo continuo sin saltos discontinuos, ponderado por categorías de cluster (Seguridad x2.0, Arquitectura x1.5, Corrutinas x1.25, UI x0.75). Mantiene los fallos críticos protegidos de la dilución por KLOC y aplica rendimientos decrecientes a avisos repetidos con tope de penalización a hallazgos `Info`.
 - ⚡ **Auto-configuración en Memoria**: Exención automática para funciones `@Composable` en proyectos recién clonados sin requerir configuración manual previa de `detekt.yml`.
-- 🔍 **88 Reglas de Calidad Catalogadas**:
-  - Reglas avanzadas de Jetpack Compose (recomposiciones, claves en listas, DerivedState, Compose Rules).
-  - Reglas de Corrutinas & Flow (manejadores de excepciones, testeabilidad de Dispatchers, operadores de Flow).
-  - Reglas de Clean Architecture (encapsulación de ViewModels, métodos de UseCases) y KMP.
+- 🔍 **99 Reglas de Calidad Catalogadas**:
+  - Reglas de Clean Architecture y SOLID (Separación Data/Domain/Presentation, contratos ViewModel/UseCase, prevención de fuga de lógica, mappers `DataModel` → `DomainModel` → `UiModel`, patrones MVI y UDF).
+  - Reglas avanzadas de Jetpack Compose (prevención de recomposiciones, claves en listas `key`, optimización `graphicsLayer`, modularización de Composables grandes).
+  - Reglas de Corrutinas & Flow (manejadores de excepciones, inyección de `Dispatchers`, operadores de Flow).
+  - Testeabilidad e Inyección de Dependencias (detección de instanciaciones directas).
 - 📦 **Instalación en 1 Línea (Zero Build)**: Scripts de instalación directa para Windows, macOS y Linux sin necesidad de compilar.
 - 🔄 **Reglas Modulares Offline-First**: Catálogo embebido en el ejecutable, con caché local persistente (`~/.kdoctor/rules/metadata.json`) y actualización remota con un clic (`kdoctor rules update`).
 - 🌐 **Reporte Web HTML Interactivo (`--html`)**: Genera un dashboard web autocontenido (`kdoctor-report.html`) en Dark Mode con medidor de score, filtros instantáneos por severidad/cluster y sugerencias de remediación (`FixHint`).

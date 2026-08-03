@@ -30,7 +30,8 @@
     "id": "compose-heavy-composable",
     "cluster": "compose-performance",
     "severity": "info",
-    "status": "planned"
+    "status": "live",
+    "fixHint": "Modularize large Composable functions (>80 lines) into smaller reusable UI components."
   },
   {
     "id": "compose-remember-missing",
@@ -60,7 +61,8 @@
     "id": "compose-graphics-layer",
     "cluster": "compose-performance",
     "severity": "warning",
-    "status": "planned"
+    "status": "live",
+    "fixHint": "Use graphicsLayer { ... } or lambda-based Modifier parameters for frequently changing animation states to skip composition and layout phases."
   },
   {
     "id": "compose-list-animated",
@@ -267,7 +269,8 @@
     "id": "arch-presentation-depends-on-data",
     "cluster": "architecture",
     "severity": "error",
-    "status": "planned"
+    "status": "live",
+    "fixHint": "Presentation layer (@Composable/ViewModel) must not depend on Data layer (data.*, DataSource, DAO, Api, RepositoryImpl). Access data through UseCases or Repository interfaces."
   },
   {
     "id": "a11y-content-description",
@@ -584,7 +587,7 @@
     "id": "arch-usecase-multiple-public-methods",
     "cluster": "architecture",
     "severity": "warning",
-    "status": "planned",
+    "status": "live",
     "fixHint": "UseCase classes should have a single public operator fun invoke(...) or execute() method."
   },
   {
@@ -601,5 +604,82 @@
     "detektRule": "CommentOverPrivateFunction",
     "status": "live",
     "fixHint": "Remove commented-out code blocks to improve codebase readability."
+  },
+  {
+    "id": "arch-viewmodel-contract",
+    "cluster": "architecture",
+    "severity": "warning",
+    "status": "live",
+    "fixHint": "ViewModels must receive UseCases. Repositories (interfaces) are allowed ONLY for passthrough UseCases without extra business logic."
+  },
+  {
+    "id": "arch-usecase-contract",
+    "cluster": "architecture",
+    "severity": "warning",
+    "status": "live",
+    "fixHint": "UseCases must depend only on domain Repository interfaces and expose a single execution method (operator fun invoke / execute)."
+  },
+  {
+    "id": "arch-misplaced-domain-logic",
+    "cluster": "architecture",
+    "severity": "warning",
+    "status": "live",
+    "fixHint": "Move domain/business logic (complex calculations, business validations) from ViewModel or Composable into a UseCase."
+  },
+  {
+    "id": "arch-misplaced-data-logic",
+    "cluster": "architecture",
+    "severity": "error",
+    "status": "live",
+    "fixHint": "Move data access, SQL queries, or HTTP parsing logic from ViewModel/UseCase into RepositoryImpl or DataSource."
+  },
+  {
+    "id": "arch-model-mapping-leak",
+    "cluster": "architecture",
+    "severity": "warning",
+    "status": "live",
+    "fixHint": "Do not leak Data DTOs/Entities to Domain/UI. Use Mappers to transform Data -> Domain -> UiModel."
+  },
+  {
+    "id": "error-handling-layer-mapping",
+    "cluster": "error-handling",
+    "severity": "warning",
+    "status": "live",
+    "fixHint": "Catch specific Data exceptions (Network/DB), map them to Domain Result/Exception, and expose explicit UiState.Error for presentation."
+  },
+  {
+    "id": "arch-viewmodel-mvi-suggestion",
+    "cluster": "architecture",
+    "severity": "info",
+    "status": "live",
+    "fixHint": "Managing multiple disjoint StateFlows increases complexity. Consider MVI architecture (_uiState.update { ... } with a unified UiState data class)."
+  },
+  {
+    "id": "compose-recomposition-optimizer",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "status": "live",
+    "fixHint": "Prevent unnecessary recompositions: break down large Composables (>80 lines), use lambda modifiers/graphicsLayer, and annotate state with @Immutable."
+  },
+  {
+    "id": "ui-hardcoded-strings",
+    "cluster": "clean-code",
+    "severity": "info",
+    "status": "live",
+    "fixHint": "Extract hardcoded UI text to stringResource(R.string...) for localization, testing, and reuse."
+  },
+  {
+    "id": "testability-direct-instantiation",
+    "cluster": "testing",
+    "severity": "error",
+    "status": "live",
+    "fixHint": "Inject dependencies through constructors (Hilt/Koin/Manual DI) instead of instantiating concrete RepositoryImpl or Services directly."
+  },
+  {
+    "id": "arch-udf-sealed-events",
+    "cluster": "architecture",
+    "severity": "info",
+    "status": "live",
+    "fixHint": "Use a sealed interface (UiEvent/UiAction) to handle UI actions cleanly in a Unidirectional Data Flow."
   }
 ]

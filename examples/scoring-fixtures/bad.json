@@ -1,6 +1,6 @@
 {
   "projectPath": "examples/bad-project",
-  "minScoreExpected": 75,
+  "minScoreExpected": 70,
   "maxScoreExpected": 90,
   "mustIncludeFinding": [
     "coroutine-global-scope",

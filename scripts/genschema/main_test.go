@@ -100,8 +100,8 @@ func TestGeneratedCatalogHas78Rules(t *testing.T) {
 	if err := json.Unmarshal(data, &rules); err != nil {
 		t.Fatal(err)
 	}
-	if len(rules) != 88 {
-		t.Fatalf("expected 88 rules, got %d", len(rules))
+	if len(rules) != 99 {
+		t.Fatalf("expected 99 rules, got %d", len(rules))
 	}
 	required := []string{"id", "cluster", "severity", "status"}
 	for i, r := range rules {
@@ -123,10 +123,25 @@ func TestLiveRulesHaveDetektMapping(t *testing.T) {
 	_ = json.Unmarshal(data, &rules)
 
 	nativeGoRules := map[string]bool{
-		"compose-missing-key":             true,
-		"coroutine-dispatchers-hardcoded": true,
-		"sec-log-pii":                     true,
-		"sec-webview-javascript-enabled":  true,
+		"compose-missing-key":                  true,
+		"coroutine-dispatchers-hardcoded":      true,
+		"sec-log-pii":                          true,
+		"sec-webview-javascript-enabled":       true,
+		"compose-heavy-composable":             true,
+		"compose-graphics-layer":               true,
+		"arch-presentation-depends-on-data":    true,
+		"arch-usecase-multiple-public-methods": true,
+		"arch-viewmodel-contract":              true,
+		"arch-usecase-contract":                true,
+		"arch-misplaced-domain-logic":          true,
+		"arch-misplaced-data-logic":            true,
+		"arch-model-mapping-leak":              true,
+		"error-handling-layer-mapping":         true,
+		"arch-viewmodel-mvi-suggestion":        true,
+		"compose-recomposition-optimizer":      true,
+		"ui-hardcoded-strings":                 true,
+		"testability-direct-instantiation":     true,
+		"arch-udf-sealed-events":               true,
 	}
 
 	for _, r := range rules {
@@ -143,8 +158,8 @@ func TestLiveRulesHaveDetektMapping(t *testing.T) {
 }
 
 func TestCatalogRulesCountSanity(t *testing.T) {
-	if len(CatalogRules) != 88 {
-		t.Fatalf("CatalogRules debe tener 88 entries; tiene %d", len(CatalogRules))
+	if len(CatalogRules) != 99 {
+		t.Fatalf("CatalogRules debe tener 99 entries; tiene %d", len(CatalogRules))
 	}
 }
 
@@ -166,10 +181,11 @@ var validPrefixes = map[string][]string{
 	"memory":              {"mem"},
 	"architecture":        {"arch"},
 	"accessibility":       {"a11y"},
-	"testing":             {"test"},
+	"testing":             {"test", "testability"},
 	"security":            {"sec"},
 	"kmp":                 {"kmp"},
 	"dead-code":           {"dead"},
+	"clean-code":          {"ui", "clean"},
 	// 5.11 nombres completos
 	"complexity":     {"complexity"},
 	"error-handling": {"error-handling"},
