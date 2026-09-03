@@ -67,7 +67,8 @@ jobs:
           if [ -n "$drift" ]; then
             echo "::error::gofmt drift detected in:"
             echo "$drift"
-            echo "::group::Run 'gofmt -w .' locally to fix."
+            gofmt -w .
+            git diff
             exit 1
           fi
 
