@@ -55,7 +55,7 @@ func newFixCmdWithProvider(p fixProvider) *cobra.Command {
 			if wd == "" {
 				wd, _ = os.Getwd()
 			}
-			runnerMode := detektrunner.Detect(wd, preferStandalone)
+			runnerMode := detektrunner.Detect(wd, preferStandalone, detektBin)
 			sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt-fix.sarif")
 			out := cmd.OutOrStdout()
 
