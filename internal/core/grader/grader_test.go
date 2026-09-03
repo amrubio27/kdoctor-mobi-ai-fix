@@ -88,7 +88,7 @@ func TestCriticalErrorCappedPerRule(t *testing.T) {
 			Severity: types.SeverityError,
 			Cluster:  "architecture",
 			Rule:     "arch-presentation-depends-on-data",
-			File:     string(rune('A' + i)) + ".kt",
+			File:     string(rune('A'+i)) + ".kt",
 		}
 	}
 	score, _ := Score(findings)

@@ -63,11 +63,11 @@ jobs:
 
       - name: gofmt drift check
         run: |
-          gofmt -w .
-          drift=$(git status --porcelain)
+          drift=$(gofmt -l .)
           if [ -n "$drift" ]; then
-            echo "::error::gofmt modified: $drift"
-            git --no-pager diff | head -n 30 | tr '\n' ' ' | xargs -0 -I{} echo "::warning::{}"
+            echo "::error::gofmt drift detected in:"
+            echo "$drift"
+            echo "::group::Run 'gofmt -w .' locally to fix."
             exit 1
           fi
 
