@@ -20,7 +20,7 @@ var (
 	logKeywordsRegex      = regexp.MustCompile(`\b(Log|Timber)\.[diwewtfv]\b|\bprint(ln)?\b`)
 	presentationPathRegex = regexp.MustCompile(`(?i)[/\\](presentation|ui|view|composable)[/\\]|ViewModel\.kt$|Screen\.kt$`)
 	dataImportRegex       = regexp.MustCompile(`(?m)^\s*import\s+[\w\.]+\.data\..*`)
-	dataImplRefRegex      = regexp.MustCompile(`\b([A-Z]\w*(?:RepositoryImpl|DataSource|Dao|Room|Retrofit|Api))\b`)
+	dataImplRefRegex      = regexp.MustCompile(`\b([A-Z]\w*(?:RepositoryImpl|DataSource|Dao|Room|Retrofit|(?:[A-Za-z0-9_]+Api)))\b`)
 	useCasePathRegex      = regexp.MustCompile(`(?i)[/\\]usecase[/\\]|UseCase\.kt$`)
 	viewModelClassRegex   = regexp.MustCompile(`class\s+([A-Za-z0-9_]+ViewModel)\b`)
 	useCaseClassRegex     = regexp.MustCompile(`class\s+([A-Za-z0-9_]+UseCase)\b`)
@@ -90,6 +90,8 @@ func RunRegexDetectors(projectDir string, rules []types.Rule) ([]types.Finding, 
 			activeDetectors = append(activeDetectors, &TestabilityDirectInstantiationDetector{rule: r})
 		case "arch-udf-sealed-events":
 			activeDetectors = append(activeDetectors, &ArchUdfSealedEventsDetector{rule: r})
+		case "arch-repository-impl-interface":
+			activeDetectors = append(activeDetectors, &ArchRepositoryImplContractDetector{rule: r})
 		}
 	}
 
@@ -666,6 +668,19 @@ func (d *ArchPresentationDependsOnDataDetector) Check(filePath string, original 
 	matches := dataImplRefRegex.FindAllStringIndex(commentAndStringStripped, -1)
 	for _, m := range matches {
 		matchStr := commentAndStringStripped[m[0]:m[1]]
+		// Excluir anotaciones y APIs experimentales estándar de Kotlin / Jetpack Compose / CMP
+		if strings.HasPrefix(matchStr, "Experimental") || matchStr == "Api" {
+			continue
+		}
+		prefix := ""
+		if m[0] >= 10 {
+			prefix = commentAndStringStripped[m[0]-10 : m[0]]
+		} else {
+			prefix = commentAndStringStripped[:m[0]]
+		}
+		if strings.Contains(prefix, "@") || strings.Contains(prefix, "OptIn") {
+			continue
+		}
 		line, col := getLineAndCol(original, m[0])
 		findings = append(findings, types.Finding{
 			ID:       d.rule.ID,
@@ -699,6 +714,18 @@ func (d *ArchViewModelContractDetector) Check(filePath string, original string, 
 	matches := dataImplRefRegex.FindAllStringIndex(commentAndStringStripped, -1)
 	for _, m := range matches {
 		matchStr := commentAndStringStripped[m[0]:m[1]]
+		if strings.HasPrefix(matchStr, "Experimental") || matchStr == "Api" {
+			continue
+		}
+		prefix := ""
+		if m[0] >= 10 {
+			prefix = commentAndStringStripped[m[0]-10 : m[0]]
+		} else {
+			prefix = commentAndStringStripped[:m[0]]
+		}
+		if strings.Contains(prefix, "@") || strings.Contains(prefix, "OptIn") {
+			continue
+		}
 		line, col := getLineAndCol(original, m[0])
 		findings = append(findings, types.Finding{
 			ID:       d.rule.ID,
@@ -732,6 +759,18 @@ func (d *ArchUseCaseContractDetector) Check(filePath string, original string, co
 	matches := dataImplRefRegex.FindAllStringIndex(commentAndStringStripped, -1)
 	for _, m := range matches {
 		matchStr := commentAndStringStripped[m[0]:m[1]]
+		if strings.HasPrefix(matchStr, "Experimental") || matchStr == "Api" {
+			continue
+		}
+		prefix := ""
+		if m[0] >= 10 {
+			prefix = commentAndStringStripped[m[0]-10 : m[0]]
+		} else {
+			prefix = commentAndStringStripped[:m[0]]
+		}
+		if strings.Contains(prefix, "@") || strings.Contains(prefix, "OptIn") {
+			continue
+		}
 		line, col := getLineAndCol(original, m[0])
 		findings = append(findings, types.Finding{
 			ID:       d.rule.ID,
@@ -915,6 +954,38 @@ func (d *ErrorHandlingLayerMappingDetector) Check(filePath string, original stri
 	var findings []types.Finding
 	matches := rawCatchRegex.FindAllStringIndex(commentAndStringStripped, -1)
 	for _, m := range matches {
+		// Encontrar el cuerpo delimitado por llaves tras el match de catch(...) {
+		braceIdx := strings.Index(commentAndStringStripped[m[0]:], "{")
+		if braceIdx != -1 {
+			startBrace := m[0] + braceIdx
+			depth := 0
+			endBrace := -1
+			for i := startBrace; i < len(commentAndStringStripped); i++ {
+				if commentAndStringStripped[i] == '{' {
+					depth++
+				} else if commentAndStringStripped[i] == '}' {
+					depth--
+					if depth == 0 {
+						endBrace = i
+						break
+					}
+				}
+			}
+			if endBrace != -1 {
+				catchBody := commentAndStringStripped[startBrace+1 : endBrace]
+				// Si el cuerpo mapea a un Result, AppError, Either, Domain exception o hace rethrow, es válido
+				if strings.Contains(catchBody, "Result.") ||
+					strings.Contains(catchBody, "AppError") ||
+					strings.Contains(catchBody, "Either") ||
+					strings.Contains(catchBody, "Error") ||
+					strings.Contains(catchBody, "throw") ||
+					strings.Contains(catchBody, "emit(") ||
+					strings.Contains(catchBody, "Failure(") {
+					continue
+				}
+			}
+		}
+
 		line, col := getLineAndCol(original, m[0])
 		findings = append(findings, types.Finding{
 			ID:       d.rule.ID,
@@ -1141,10 +1212,10 @@ func (d *ArchUdfSealedEventsDetector) Check(filePath string, original string, co
 	}
 
 	if !strings.Contains(commentAndStringStripped, "UiEvent") && !strings.Contains(commentAndStringStripped, "UiAction") {
-		onMethodsRegex := regexp.MustCompile(`\bfun\s+on[A-Z]\w*`)
-		matches := onMethodsRegex.FindAllStringIndex(commentAndStringStripped, -1)
-		if len(matches) >= 3 {
-			line, col := getLineAndCol(original, matches[0][0])
+		// Detectar tanto acumulación de on* como mutadores directos individuales (onXChanged, setX, updateX)
+		mutatorRegex := regexp.MustCompile(`\bfun\s+(?:on[A-Z]\w*Changed|set[A-Z]\w*|update[A-Z]\w*)\s*\(`)
+		if m := mutatorRegex.FindStringIndex(commentAndStringStripped); m != nil {
+			line, col := getLineAndCol(original, m[0])
 			findings = append(findings, types.Finding{
 				ID:       d.rule.ID,
 				Cluster:  d.rule.Cluster,
@@ -1153,7 +1224,68 @@ func (d *ArchUdfSealedEventsDetector) Check(filePath string, original string, co
 				File:     filePath,
 				Line:     line,
 				Column:   col,
-				Message:  fmt.Sprintf("arch-udf-sealed-events: ViewModel exposes %d separate on* event methods. Consider a sealed interface UiEvent to enforce Unidirectional Data Flow (UDF).", len(matches)),
+				Message:  "arch-udf-sealed-events: ViewModel exposes public mutator methods. Use sealed interface UiEvent to enforce Unidirectional Data Flow (UDF/MVI).",
+				FixHint:  d.rule.FixHint,
+				DocURL:   d.rule.DocURL,
+			})
+		} else {
+			onMethodsRegex := regexp.MustCompile(`\bfun\s+on[A-Z]\w*`)
+			matches := onMethodsRegex.FindAllStringIndex(commentAndStringStripped, -1)
+			if len(matches) >= 3 {
+				line, col := getLineAndCol(original, matches[0][0])
+				findings = append(findings, types.Finding{
+					ID:       d.rule.ID,
+					Cluster:  d.rule.Cluster,
+					Rule:     d.rule.ID,
+					Severity: d.rule.Severity,
+					File:     filePath,
+					Line:     line,
+					Column:   col,
+					Message:  fmt.Sprintf("arch-udf-sealed-events: ViewModel exposes %d separate on* event methods. Consider a sealed interface UiEvent to enforce Unidirectional Data Flow (UDF).", len(matches)),
+					FixHint:  d.rule.FixHint,
+					DocURL:   d.rule.DocURL,
+				})
+			}
+		}
+	}
+	return findings
+}
+
+// 20. ArchRepositoryImplContractDetector
+type ArchRepositoryImplContractDetector struct {
+	rule types.Rule
+}
+
+func (d *ArchRepositoryImplContractDetector) ID() string { return d.rule.ID }
+
+func (d *ArchRepositoryImplContractDetector) Check(filePath string, original string, commentStripped string, commentAndStringStripped string) []types.Finding {
+	var findings []types.Finding
+	if !strings.HasSuffix(filePath, "RepositoryImpl.kt") && !strings.Contains(commentAndStringStripped, "RepositoryImpl") {
+		return findings
+	}
+
+	classRegex := regexp.MustCompile(`class\s+([A-Za-z0-9_]+RepositoryImpl)(?:<[^>]+>)?\s*(?:\([^)]*\))?\s*(?::\s*([^{]+))?\{?`)
+	matches := classRegex.FindAllStringSubmatchIndex(commentAndStringStripped, -1)
+	for _, m := range matches {
+		className := commentAndStringStripped[m[2]:m[3]]
+		hasSuperType := false
+		if m[4] != -1 && m[5] != -1 {
+			supertypes := commentAndStringStripped[m[4]:m[5]]
+			if strings.Contains(supertypes, "Repository") {
+				hasSuperType = true
+			}
+		}
+		if !hasSuperType {
+			line, col := getLineAndCol(original, m[0])
+			findings = append(findings, types.Finding{
+				ID:       d.rule.ID,
+				Cluster:  d.rule.Cluster,
+				Rule:     d.rule.ID,
+				Severity: d.rule.Severity,
+				File:     filePath,
+				Line:     line,
+				Column:   col,
+				Message:  fmt.Sprintf("arch-repository-impl-interface: Class %s must implement a domain Repository interface (DIP contract violation).", className),
 				FixHint:  d.rule.FixHint,
 				DocURL:   d.rule.DocURL,
 			})

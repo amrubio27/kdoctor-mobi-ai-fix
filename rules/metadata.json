@@ -678,8 +678,15 @@
   {
     "id": "arch-udf-sealed-events",
     "cluster": "architecture",
-    "severity": "info",
+    "severity": "warning",
     "status": "live",
     "fixHint": "Use a sealed interface (UiEvent/UiAction) to handle UI actions cleanly in a Unidirectional Data Flow."
+  },
+  {
+    "id": "arch-repository-impl-interface",
+    "cluster": "architecture",
+    "severity": "error",
+    "status": "live",
+    "fixHint": "Ensure RepositoryImpl classes implement their corresponding domain Repository interface (DIP contract)."
   }
 ]

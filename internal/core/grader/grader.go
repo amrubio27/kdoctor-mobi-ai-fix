@@ -53,6 +53,7 @@ func ScoreWithKLOC(findings []types.Finding, totalLines int) (int, types.Summary
 	var criticalPenalty float64
 	var regularPenalty float64
 	var infoPenalty float64
+	criticalPenaltyByRule := make(map[string]float64)
 
 	for _, f := range findings {
 		s.Total++
@@ -99,10 +100,23 @@ func ScoreWithKLOC(findings []types.Finding, totalLines int) (int, types.Summary
 		if f.Severity == types.SeverityInfo {
 			infoPenalty += itemPenalty
 		} else if isCriticalFinding(f) {
-			criticalPenalty += itemPenalty
+			// Acumular por regla para aplicar damping y evitar que una sola regla heurística hunda el score a 0
+			ruleKey := f.Rule
+			if ruleKey == "" {
+				ruleKey = f.ID
+			}
+			criticalPenaltyByRule[ruleKey] += itemPenalty
 		} else {
 			regularPenalty += itemPenalty
 		}
+	}
+
+	// Cap por regla crítica individual a 15.0 puntos máximo
+	for _, pen := range criticalPenaltyByRule {
+		if pen > 15.0 {
+			pen = 15.0
+		}
+		criticalPenalty += pen
 	}
 
 	// Cap info penalty at 10.0 points max

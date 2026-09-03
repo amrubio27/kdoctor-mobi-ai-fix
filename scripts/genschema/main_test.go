@@ -142,6 +142,7 @@ func TestLiveRulesHaveDetektMapping(t *testing.T) {
 		"ui-hardcoded-strings":                 true,
 		"testability-direct-instantiation":     true,
 		"arch-udf-sealed-events":               true,
+		"arch-repository-impl-interface":       true,
 	}
 
 	for _, r := range rules {

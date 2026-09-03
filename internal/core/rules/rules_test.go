@@ -447,6 +447,103 @@ func TestTestabilityDirectInstantiationDetector(t *testing.T) {
 	}
 }
 
+func TestArchPresentationDependsOnDataDetector_ExcludesExperimental(t *testing.T) {
+	rule := types.Rule{ID: "arch-presentation-depends-on-data", Cluster: "architecture", Severity: types.SeverityError}
+	det := &ArchPresentationDependsOnDataDetector{rule: rule}
+
+	content := `
+		package com.example.app.ui
+		import androidx.compose.material3.ExperimentalMaterial3Api
+		import androidx.compose.animation.ExperimentalSharedTransitionApi
+		import kotlinx.serialization.ExperimentalSerializationApi
+
+		@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
+		@Composable
+		fun MainScreen() {
+			Text("Hello")
+		}
+	`
+	got := det.Check("presentation/MainScreen.kt", content, stripComments(content), stripCommentsAndStrings(content))
+	if len(got) != 0 {
+		t.Errorf("expected 0 findings for @OptIn Experimental APIs, got %d", len(got))
+	}
+}
+
+func TestErrorHandlingLayerMappingDetector_WithDomainMapping(t *testing.T) {
+	rule := types.Rule{ID: "error-handling-layer-mapping", Cluster: "error-handling", Severity: types.SeverityWarning}
+	det := &ErrorHandlingLayerMappingDetector{rule: rule}
+
+	content := `
+		fun fetchData() {
+			try {
+				api.call()
+			} catch (e: Exception) {
+				emit(Result.failure(AppError.Network(e)))
+			}
+		}
+	`
+	got := det.Check("data/Repo.kt", content, stripComments(content), stripCommentsAndStrings(content))
+	if len(got) != 0 {
+		t.Errorf("expected 0 findings when catch maps to domain Result.failure/AppError, got %d", len(got))
+	}
+
+	swallowedContent := `
+		fun fetchData() {
+			try {
+				api.call()
+			} catch (e: Exception) {
+				// empty or swallowed
+			}
+		}
+	`
+	swallowedGot := det.Check("data/Repo.kt", swallowedContent, stripComments(swallowedContent), stripCommentsAndStrings(swallowedContent))
+	if len(swallowedGot) != 1 {
+		t.Errorf("expected 1 finding for swallowed catch, got %d", len(swallowedGot))
+	}
+}
+
+func TestArchUdfSealedEvents_MutatorDetection(t *testing.T) {
+	rule := types.Rule{ID: "arch-udf-sealed-events", Cluster: "architecture", Severity: types.SeverityWarning}
+	det := &ArchUdfSealedEventsDetector{rule: rule}
+
+	content := `
+		class SensorDetailViewModel : ViewModel() {
+			fun onNameChanged(newName: String) {
+				_state.value = newName
+			}
+		}
+	`
+	got := det.Check("SensorDetailViewModel.kt", content, stripComments(content), stripCommentsAndStrings(content))
+	if len(got) != 1 {
+		t.Errorf("expected 1 finding for public onNameChanged mutator method in ViewModel, got %d", len(got))
+	}
+}
+
+func TestArchRepositoryImplContractDetector(t *testing.T) {
+	rule := types.Rule{ID: "arch-repository-impl-interface", Cluster: "architecture", Severity: types.SeverityError}
+	det := &ArchRepositoryImplContractDetector{rule: rule}
+
+	badContent := `
+		class SensorRepositoryImpl(private val dao: SensorDao) {
+			fun getSensors() = dao.getAll()
+		}
+	`
+	badGot := det.Check("data/SensorRepositoryImpl.kt", badContent, stripComments(badContent), stripCommentsAndStrings(badContent))
+	if len(badGot) != 1 {
+		t.Errorf("expected 1 finding for orphan SensorRepositoryImpl without interface, got %d", len(badGot))
+	}
+
+	goodContent := `
+		class SensorRepositoryImpl(private val dao: SensorDao) : SensorRepository {
+			override fun getSensors() = dao.getAll()
+		}
+	`
+	goodGot := det.Check("data/SensorRepositoryImpl.kt", goodContent, stripComments(goodContent), stripCommentsAndStrings(goodContent))
+	if len(goodGot) != 0 {
+		t.Errorf("expected 0 findings for SensorRepositoryImpl implementing SensorRepository, got %d", len(goodGot))
+	}
+}
+
 // ----------------------------------------------------
 // Test Helpers
 // ----------------------------------------------------

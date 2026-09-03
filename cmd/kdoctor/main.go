@@ -14,7 +14,7 @@ import (
 	"github.com/adkd/adkd/internal/cli"
 )
 
-var version = "0.5.0"
+var version = "0.6.0"
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{

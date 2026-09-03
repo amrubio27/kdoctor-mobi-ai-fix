@@ -62,19 +62,38 @@ func TestInfoPenaltyCappedAt10(t *testing.T) {
 }
 
 func TestCriticalErrorsNotDilutedByKLOC(t *testing.T) {
-	// 5 critical security errors in a 100,000 line project
+	// 5 critical security errors in a 100,000 line project across distinct security rules
 	findings := []types.Finding{
-		{Severity: types.SeverityError, Cluster: "security", File: "A.kt"},
-		{Severity: types.SeverityError, Cluster: "security", File: "B.kt"},
-		{Severity: types.SeverityError, Cluster: "security", File: "C.kt"},
-		{Severity: types.SeverityError, Cluster: "security", File: "D.kt"},
-		{Severity: types.SeverityError, Cluster: "security", File: "E.kt"},
+		{Severity: types.SeverityError, Cluster: "security", File: "A.kt", Rule: "sec-rule-1"},
+		{Severity: types.SeverityError, Cluster: "security", File: "B.kt", Rule: "sec-rule-2"},
+		{Severity: types.SeverityError, Cluster: "security", File: "C.kt", Rule: "sec-rule-3"},
+		{Severity: types.SeverityError, Cluster: "security", File: "D.kt", Rule: "sec-rule-4"},
+		{Severity: types.SeverityError, Cluster: "security", File: "E.kt", Rule: "sec-rule-5"},
 	}
 	score100K, _ := ScoreWithKLOC(findings, 100000)
 	// Each critical security error is 5.0 * 2.0 = 10 pts. Total = 50 pts deduction.
 	// Since critical errors are not diluted by KLOC, score should be 50.
 	if score100K != 50 {
 		t.Fatalf("critical errors should not be diluted by KLOC: expected 50, got %d", score100K)
+	}
+}
+
+func TestCriticalErrorCappedPerRule(t *testing.T) {
+	// 10 occurrences of the exact same critical rule across different files
+	// Without cap: 10 * 7.5 = 75 pts penalty
+	// With 15.0 max cap per rule: penalty capped at 15.0 -> score 85
+	findings := make([]types.Finding, 10)
+	for i := 0; i < 10; i++ {
+		findings[i] = types.Finding{
+			Severity: types.SeverityError,
+			Cluster:  "architecture",
+			Rule:     "arch-presentation-depends-on-data",
+			File:     string(rune('A' + i)) + ".kt",
+		}
+	}
+	score, _ := Score(findings)
+	if score != 85 {
+		t.Fatalf("expected 85 due to 15.0 cap on single critical rule, got %d", score)
 	}
 }
 

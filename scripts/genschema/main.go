@@ -171,15 +171,16 @@ var CatalogRules = []Rule{
 	{ID: "compose-recomposition-optimizer", Cluster: "compose-performance", Severity: "warning", Status: "live", FixHint: "Prevent unnecessary recompositions: break down large Composables (>80 lines), use lambda modifiers/graphicsLayer, and annotate state with @Immutable."},
 	{ID: "ui-hardcoded-strings", Cluster: "clean-code", Severity: "info", Status: "live", FixHint: "Extract hardcoded UI text to stringResource(R.string...) for localization, testing, and reuse."},
 	{ID: "testability-direct-instantiation", Cluster: "testing", Severity: "error", Status: "live", FixHint: "Inject dependencies through constructors (Hilt/Koin/Manual DI) instead of instantiating concrete RepositoryImpl or Services directly."},
-	{ID: "arch-udf-sealed-events", Cluster: "architecture", Severity: "info", Status: "live", FixHint: "Use a sealed interface (UiEvent/UiAction) to handle UI actions cleanly in a Unidirectional Data Flow."},
+	{ID: "arch-udf-sealed-events", Cluster: "architecture", Severity: "warning", Status: "live", FixHint: "Use a sealed interface (UiEvent/UiAction) to handle UI actions cleanly in a Unidirectional Data Flow."},
+	{ID: "arch-repository-impl-interface", Cluster: "architecture", Severity: "error", Status: "live", FixHint: "Ensure RepositoryImpl classes implement their corresponding domain Repository interface (DIP contract)."},
 }
 
 func main() {
 	out := flag.String("out", "rules/metadata.json", "output path for the generated metadata.json")
 	flag.Parse()
 
-	if len(CatalogRules) != 99 {
-		fmt.Fprintf(os.Stderr, "ERROR: expected 99 rules, got %d\n", len(CatalogRules))
+	if len(CatalogRules) != 100 {
+		fmt.Fprintf(os.Stderr, "ERROR: expected 100 rules, got %d\n", len(CatalogRules))
 		os.Exit(1)
 	}
 

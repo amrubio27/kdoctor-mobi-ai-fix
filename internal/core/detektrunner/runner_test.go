@@ -8,9 +8,23 @@ import (
 
 func TestDetectReturnsKnownMode(t *testing.T) {
 	tmp := t.TempDir()
-	mode := Detect(tmp, false)
+	mode := Detect(tmp, false, "")
 	if mode != ModeStandalone && mode != ModeGradleWrap {
 		t.Fatalf("unexpected mode %q", mode)
+	}
+}
+
+func TestDetectExplicitBinOverridesGradlew(t *testing.T) {
+	tmp := t.TempDir()
+	// Crear un gradlew dummy
+	_ = writeFileString(filepath.Join(tmp, "gradlew"), "#!/bin/sh\nexit 0\n")
+	// Sin explicitBin debe preferir gradlew
+	if mode := Detect(tmp, false, ""); mode != ModeGradleWrap {
+		t.Fatalf("expected ModeGradleWrap, got %q", mode)
+	}
+	// Con explicitBin debe ser ModeStandalone
+	if mode := Detect(tmp, false, "detekt-cli.bat"); mode != ModeStandalone {
+		t.Fatalf("expected ModeStandalone with explicit bin, got %q", mode)
 	}
 }
 

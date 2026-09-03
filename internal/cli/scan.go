@@ -164,8 +164,13 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	}
 
 	// 2. Detectar modo y correr Detekt.
-	mode := detektrunner.Detect(wd, f.preferStandalone)
+	mode := detektrunner.Detect(wd, f.preferStandalone, f.detektBin)
 	sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt.sarif")
+
+	if f.verbose {
+		fmt.Fprintf(cmd.OutOrStdout(), "[kdoctor] Scanner strategy: %s (explicit bin: %q, preferStandalone: %v)\n", mode, f.detektBin, f.preferStandalone)
+	}
+
 	// Ocultar por defecto la salida del subproceso detekt para evitar que
 	// los warnings del JVM (sun.misc.Unsafe) contaminen el reporte. El flag
 	// --verbose permite volver a mostrar esa salida.
@@ -175,6 +180,8 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	} else {
 		detektOut = io.Discard
 	}
+
+	var raw []types.Finding
 	if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
 		ProjectDir:     wd,
 		SARIFOutput:    sarifPath,
@@ -182,18 +189,19 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 		StandalonePath: f.detektBin,
 		Stdout:         detektOut,
 	}); err != nil {
-		return fmt.Errorf("detekt: %w", err)
-	}
-
-	// 3. Parsear SARIF.
-	file, err := os.Open(sarifPath)
-	if err != nil {
-		return fmt.Errorf("open sarif %s: %w", sarifPath, err)
-	}
-	defer func() { _ = file.Close() }()
-	raw, err := sarif.Parse(file)
-	if err != nil {
-		return fmt.Errorf("parse sarif: %w", err)
+		// Modo Fail-Soft: si detekt no pudo ejecutarse (e.g. sin gradle task o sin binario),
+		// avisar en stderr pero continuar el escaneo con los detectores nativos Go de kdoctor.
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: detekt execution skipped or failed (%v). Falling back to native kdoctor rules.\n", err)
+	} else {
+		// 3. Parsear SARIF si se generó.
+		if file, err := os.Open(sarifPath); err == nil {
+			defer func() { _ = file.Close() }()
+			if parsed, err := sarif.Parse(file); err == nil {
+				raw = parsed
+			} else {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: parse detekt sarif: %v\n", err)
+			}
+		}
 	}
 
 	// 4. Correr detectores regex nativos en Go.

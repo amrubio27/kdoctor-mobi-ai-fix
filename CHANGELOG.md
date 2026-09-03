@@ -5,6 +5,24 @@ All notable changes to kdoctor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.6.0] — 2026-09-03
+
+### Fixed & Enhanced
+- **Detekt Binary Resolution (`--detekt-bin`)**: Explicit `--detekt-bin` is now authoritative and takes absolute precedence over `./gradlew`.
+- **Cross-Platform `.jar` Execution**: Passing a `.jar` to `--detekt-bin` now launches correctly via `java -jar <jar>` across Windows/macOS/Linux.
+- **Detekt 2.x Compatibility**: Added dynamic detekt version probing; `--max-issues` flag is omitted for Detekt 2.x CLI runs. Added alias support between `UnusedImports` (1.x) and `UnusedImport` (2.x).
+- **False Positive Elimination in Clean Architecture**:
+  - `arch-presentation-depends-on-data`: Excluded `@OptIn(Experimental*Api)` annotations and Compose experimental APIs from being falsely flagged as data implementations.
+  - `error-handling-layer-mapping`: Inspected `catch` bodies to permit domain error mapping (`Result.failure`, `AppError`, `Either`, domain exceptions and rethrows).
+- **Health Score Anti-Dilution Damping**: Individual critical rule penalties are capped at 15.0 pts max, preventing false-positive noise from artificially dropping valid projects to 0/100.
+- **Contrato Clean Architecture & MVI**:
+  - Added new rule `arch-repository-impl-interface` ensuring `*RepositoryImpl` implements a domain `*Repository` interface.
+  - Strengthened `arch-udf-sealed-events` to detect public mutator methods (`on*Changed`, `set*`, `update*`) in ViewModels.
+- **CLI & UX Hardening**:
+  - `kdoctor init` is now completely idempotent when configuration files exist.
+  - Added fail-soft scanning mode falling back gracefully to native architecture rules if Detekt fails.
+  - Detailed scanner strategy logging when running with `--verbose`.
+
 ## [v0.5.0] — 2026-08-03
 
 ### Changed & Fixed

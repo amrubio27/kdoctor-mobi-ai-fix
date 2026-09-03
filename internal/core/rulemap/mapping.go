@@ -56,6 +56,12 @@ func (idx *Index) Map(findings []types.Finding) []types.Finding {
 		if rule, ok := idx.byDetekt[queryID]; ok {
 			r = rule
 			matched = true
+		} else if queryID == "UnusedImport" && idx.byDetekt["UnusedImports"].ID != "" {
+			r = idx.byDetekt["UnusedImports"]
+			matched = true
+		} else if queryID == "UnusedImports" && idx.byDetekt["UnusedImport"].ID != "" {
+			r = idx.byDetekt["UnusedImport"]
+			matched = true
 		} else if rule, ok := idx.byID[queryID]; ok {
 			r = rule
 			matched = true

@@ -58,20 +58,24 @@ func runInit(cmd *cobra.Command, f initFlags) error {
 
 	// 1. kdoctor.config.yaml
 	configPath := filepath.Join(wd, "kdoctor.config.yaml")
-	if !f.force {
-		if _, err := os.Stat(configPath); err == nil {
-			return fmt.Errorf("%s already exists; use --force to overwrite", configPath)
+	writeConfig := f.force
+	if !writeConfig {
+		_, err := os.Stat(configPath)
+		writeConfig = os.IsNotExist(err)
+	}
+	if writeConfig {
+		cfg := config.ForProjectType(pt)
+		data, err := config.Marshal(cfg)
+		if err != nil {
+			return fmt.Errorf("marshal config: %w", err)
 		}
+		if err := os.WriteFile(configPath, data, 0644); err != nil {
+			return fmt.Errorf("write %s: %w", configPath, err)
+		}
+		created = append(created, configPath)
+	} else {
+		fmt.Fprintf(cmd.OutOrStdout(), "  • %s already exists (skipped, use --force to overwrite)\n", configPath)
 	}
-	cfg := config.ForProjectType(pt)
-	data, err := config.Marshal(cfg)
-	if err != nil {
-		return fmt.Errorf("marshal config: %w", err)
-	}
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
-		return fmt.Errorf("write %s: %w", configPath, err)
-	}
-	created = append(created, configPath)
 
 	// 2. detekt.yml
 	detektPath := filepath.Join(wd, "detekt.yml")

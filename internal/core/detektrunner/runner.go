@@ -61,34 +61,49 @@ var defaultExcludes = []string{
 	"**/kspCaches/**",
 }
 
+// probeDetektIsV2 checks whether the resolved detekt binary reports version 2.x.
+func probeDetektIsV2(ctx context.Context, bin string) bool {
+	var cmd *exec.Cmd
+	if strings.HasSuffix(strings.ToLower(bin), ".jar") {
+		cmd = exec.CommandContext(ctx, "java", "-jar", bin, "--version")
+	} else {
+		cmd = exec.CommandContext(ctx, bin, "--version")
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+	verStr := strings.TrimSpace(string(out))
+	return strings.HasPrefix(verStr, "2.") || strings.Contains(verStr, " 2.")
+}
+
 func runStandalone(ctx context.Context, opts Options) (string, error) {
 	bin := opts.StandalonePath
 	if bin == "" {
 		bin = "detekt"
 	}
-	// Resuelve opts.ProjectDir a path absoluto. Sin esto, cuando el usuario
-	// pasa --project-dir <ruta_relativa> (e.g. "examples/bad-project"),
-	// cmd.Dir también es relativo y detekt interpreta --input relativo a
-	// cmd.Dir — termina buscando <cwd>/<relative>/<relative> (no existe) y
-	// falla con exit 1 sin escribir SARIF. Trap diagnosticado en Fase 2.
+	// Resuelve opts.ProjectDir a path absoluto.
 	absProjectDir, err := filepath.Abs(opts.ProjectDir)
 	if err != nil {
 		return "", fmt.Errorf("abs path for projectDir: %w", err)
 	}
 	excludesCSV := strings.Join(defaultExcludes, ",")
-	// Crítico: limpia cualquier SARIF stale de runs previos. Sin esto,
-	// el safety net acepta el archivo anterior aunque detekt haya fallado.
+	// Crítico: limpia cualquier SARIF stale de runs previos.
 	_ = os.Remove(opts.SARIFOutput)
+
+	isV2 := probeDetektIsV2(ctx, bin)
+
 	args := []string{
 		"--input", absProjectDir,
 		"--report", "sarif:" + opts.SARIFOutput,
-		"--max-issues", fmt.Sprintf("%d", defaultMaxIssues),
 		"--excludes", excludesCSV,
 	}
+	if !isV2 {
+		args = append(args, "--max-issues", fmt.Sprintf("%d", defaultMaxIssues))
+	}
+
 	// Si el proyecto provee su propio detekt.yml (o detekt.yaml) en la raíz,
-	// lo pasamos con --config. Permite al usuario (o a los test fixtures)
-	// habilitar reglas que detekt-cli desactiva por defecto (HardcodedPassword,
-	// GlobalCoroutineUsage, UnusedImport, etc.).
+	// lo pasamos con --config.
 	var configFound bool
 	for _, name := range []string{"detekt.yml", "detekt.yaml"} {
 		candidate := filepath.Join(absProjectDir, name)
@@ -105,7 +120,17 @@ func runStandalone(ctx context.Context, opts Options) (string, error) {
 			args = append(args, "--config", autoConfig)
 		}
 	}
-	cmd := exec.CommandContext(ctx, bin, args...)
+
+	var cmd *exec.Cmd
+	if strings.HasSuffix(strings.ToLower(bin), ".jar") {
+		if _, err := exec.LookPath("java"); err != nil {
+			return "", fmt.Errorf("java runtime not found in PATH required to execute detekt jar: %s", bin)
+		}
+		javaArgs := append([]string{"-jar", bin}, args...)
+		cmd = exec.CommandContext(ctx, "java", javaArgs...)
+	} else {
+		cmd = exec.CommandContext(ctx, bin, args...)
+	}
 	cmd.Dir = absProjectDir
 	out := opts.Stdout
 	if out == nil {
@@ -113,10 +138,9 @@ func runStandalone(ctx context.Context, opts Options) (string, error) {
 	}
 	cmd.Stdout, cmd.Stderr = out, out
 	if err := cmd.Run(); err != nil {
-		// Safety net: si detekt escribió un SARIF fresco pese a exit != 0,
-		// algunos runtimes retornan non-zero incluso con findings legítimos.
-		// El SARIF es fresh porque acabamos de hacer Remove arriba.
-		if _, statErr := os.Stat(opts.SARIFOutput); statErr == nil {
+		// Safety net: si detekt escribió un SARIF fresco pese a exit != 0
+		// (e.g. detekt retorna exit 2 cuando hay findings), aceptamos el SARIF.
+		if stat, statErr := os.Stat(opts.SARIFOutput); statErr == nil && stat.Size() > 0 {
 			return opts.SARIFOutput, nil
 		}
 		return "", fmt.Errorf("detekt standalone: %w", err)
