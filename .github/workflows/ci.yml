@@ -63,12 +63,11 @@ jobs:
 
       - name: gofmt drift check
         run: |
-          drift=$(gofmt -l .)
+          gofmt -w .
+          drift=$(git status --porcelain)
           if [ -n "$drift" ]; then
-            for f in $drift; do
-              echo "::error file=$f::gofmt drift detected in $f"
-            done
-            gofmt -d .
+            echo "::error::gofmt drift detected in repository. Files were reformatted:"
+            git diff
             exit 1
           fi
 
