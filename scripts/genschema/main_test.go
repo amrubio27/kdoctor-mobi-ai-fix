@@ -100,8 +100,8 @@ func TestGeneratedCatalogHas78Rules(t *testing.T) {
 	if err := json.Unmarshal(data, &rules); err != nil {
 		t.Fatal(err)
 	}
-	if len(rules) != 99 {
-		t.Fatalf("expected 99 rules, got %d", len(rules))
+	if len(rules) != 100 {
+		t.Fatalf("expected 100 rules, got %d", len(rules))
 	}
 	required := []string{"id", "cluster", "severity", "status"}
 	for i, r := range rules {
@@ -159,8 +159,8 @@ func TestLiveRulesHaveDetektMapping(t *testing.T) {
 }
 
 func TestCatalogRulesCountSanity(t *testing.T) {
-	if len(CatalogRules) != 99 {
-		t.Fatalf("CatalogRules debe tener 99 entries; tiene %d", len(CatalogRules))
+	if len(CatalogRules) != 100 {
+		t.Fatalf("CatalogRules debe tener 100 entries; tiene %d", len(CatalogRules))
 	}
 }
 
