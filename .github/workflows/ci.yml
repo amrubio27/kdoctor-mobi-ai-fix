@@ -65,10 +65,10 @@ jobs:
         run: |
           drift=$(gofmt -l .)
           if [ -n "$drift" ]; then
-            echo "::error::gofmt drift detected in:"
-            echo "$drift"
-            gofmt -w .
-            git diff
+            for f in $drift; do
+              echo "::error file=$f::gofmt drift detected in $f"
+            done
+            gofmt -d .
             exit 1
           fi
 
