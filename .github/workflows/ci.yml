@@ -66,8 +66,8 @@ jobs:
           gofmt -w .
           drift=$(git status --porcelain)
           if [ -n "$drift" ]; then
-            DIFF=$(git diff -U0)
-            echo "::error::gofmt drift in $drift -- $DIFF"
+            echo "::error::gofmt modified: $drift"
+            git --no-pager diff | head -n 30 | tr '\n' ' ' | xargs -0 -I{} echo "::warning::{}"
             exit 1
           fi
 
