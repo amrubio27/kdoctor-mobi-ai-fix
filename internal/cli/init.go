@@ -56,40 +56,36 @@ func runInit(cmd *cobra.Command, f initFlags) error {
 
 	created := []string{}
 
-	// 1. kdoctor.config.yaml
+	// 1. Preflight: si kdoctor.config.yaml o detekt.yml ya existen y no se especificó --force, rechazar
 	configPath := filepath.Join(wd, "kdoctor.config.yaml")
-	writeConfig := f.force
-	if !writeConfig {
-		_, err := os.Stat(configPath)
-		writeConfig = os.IsNotExist(err)
-	}
-	if writeConfig {
-		cfg := config.ForProjectType(pt)
-		data, err := config.Marshal(cfg)
-		if err != nil {
-			return fmt.Errorf("marshal config: %w", err)
+	detektPath := filepath.Join(wd, "detekt.yml")
+	if !f.force {
+		var conflicts []string
+		if _, err := os.Stat(configPath); err == nil {
+			conflicts = append(conflicts, configPath)
 		}
-		if err := os.WriteFile(configPath, data, 0644); err != nil {
-			return fmt.Errorf("write %s: %w", configPath, err)
+		if _, err := os.Stat(detektPath); err == nil {
+			conflicts = append(conflicts, detektPath)
 		}
-		created = append(created, configPath)
-	} else {
-		fmt.Fprintf(cmd.OutOrStdout(), "  • %s already exists (skipped, use --force to overwrite)\n", configPath)
+		if len(conflicts) > 0 {
+			return fmt.Errorf("%s already exists (use --force to overwrite)", strings.Join(conflicts, ", "))
+		}
 	}
 
-	// 2. detekt.yml
-	detektPath := filepath.Join(wd, "detekt.yml")
-	writeDetekt := f.force
-	if !writeDetekt {
-		_, err := os.Stat(detektPath)
-		writeDetekt = os.IsNotExist(err)
+	cfg := config.ForProjectType(pt)
+	data, err := config.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
 	}
-	if writeDetekt || f.force {
-		if err := os.WriteFile(detektPath, []byte(detektTemplate()), 0644); err != nil {
-			return fmt.Errorf("write %s: %w", detektPath, err)
-		}
-		created = append(created, detektPath)
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("write %s: %w", configPath, err)
 	}
+	created = append(created, configPath)
+
+	if err := os.WriteFile(detektPath, []byte(detektTemplate()), 0644); err != nil {
+		return fmt.Errorf("write %s: %w", detektPath, err)
+	}
+	created = append(created, detektPath)
 
 	// 3. .gitignore
 	gitignorePath := filepath.Join(wd, ".gitignore")
