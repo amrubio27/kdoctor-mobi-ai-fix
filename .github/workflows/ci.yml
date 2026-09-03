@@ -80,7 +80,16 @@ jobs:
       # diff.go subprocess management.
 
       - name: go test (with -race)
-        run: go test -v -race -count=1 -timeout=120s ./...
+        run: |
+          set +e
+          go test -race -count=1 -timeout=120s ./... > test_out.txt 2>&1
+          CODE=$?
+          if [ $CODE -ne 0 ]; then
+            FAILURES=$(grep "FAIL:" test_out.txt | head -n 10 | tr '\n' ' ')
+            echo "::error::go test failed: $FAILURES"
+            cat test_out.txt | tail -n 40 | tr '\n' ' ' | xargs -0 -I{} echo "::warning::{}"
+            exit $CODE
+          fi
 
       # Build smoke test. Confirms the binary compiles end-to-end.
       - name: go build (cmd/kdoctor)
