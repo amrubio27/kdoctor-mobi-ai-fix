@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -561,4 +563,110 @@ func stringsContainsAny(s string, substrings ...string) bool {
 
 func findKeywordIndex(content, keyword string) int {
 	return strings.Index(content, keyword)
+}
+
+func TestIsTestSource(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		// Android layout.
+		{"app/src/test/java/com/x/FooTest.kt", true},
+		{"app/src/androidTest/java/com/x/Foo.kt", true},
+		// KMP source sets.
+		{"shared/src/commonTest/kotlin/Foo.kt", true},
+		{"shared/src/androidHostTest/kotlin/Bar.kt", true},
+		{"shared/src/iosTest/kotlin/Baz.kt", true},
+		// By file name.
+		{"app/src/main/java/FooTest.kt", true},
+		{"app/RepoSpec.kt", true},
+		// Production code.
+		{"shared/src/commonMain/kotlin/Repo.kt", false},
+		{"app/src/main/java/NotesViewModel.kt", false},
+		// Words that merely contain "test": a case-insensitive suffix match
+		// would wrongly classify these as test code.
+		{"app/src/main/java/Latest.kt", false},
+		{"app/src/main/java/contest/Foo.kt", false},
+	}
+	for _, c := range cases {
+		if got := isTestSource(c.path); got != c.want {
+			t.Errorf("isTestSource(%q) = %v, want %v", c.path, got, c.want)
+		}
+	}
+}
+
+// TestDesignRulesSkipTestSources pins the fix for the largest single source of
+// noise found on real projects: architecture rules firing inside test code.
+//
+// A ViewModel test legitimately imports from the data layer to build fixtures.
+// On a 16 KLOC project, all 36 critical architecture findings came from test
+// sources, and since critical findings drive the Health Score hardest, those
+// false positives dominated its score.
+func TestDesignRulesSkipTestSources(t *testing.T) {
+	dir := t.TempDir()
+	// Same content in production and in test code.
+	code := "package com.x.ui\n\n" +
+		"import com.x.data.UserRepositoryImpl\n\n" +
+		"class NotesViewModel {\n    val repo = UserRepositoryImpl()\n}\n"
+
+	prod := filepath.Join(dir, "src", "commonMain", "kotlin", "NotesViewModel.kt")
+	test := filepath.Join(dir, "src", "commonTest", "kotlin", "NotesViewModelTest.kt")
+	for _, p := range []string{prod, test} {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(code), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	catalog := []types.Rule{{
+		ID: "arch-presentation-depends-on-data", Cluster: "architecture",
+		Severity: types.SeverityError, Status: "live",
+	}}
+	findings, err := RunRegexDetectors(dir, catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var inProd, inTest int
+	for _, f := range findings {
+		if isTestSource(f.File) {
+			inTest++
+		} else {
+			inProd++
+		}
+	}
+	if inProd == 0 {
+		t.Error("the architecture rule must still fire in production code")
+	}
+	if inTest != 0 {
+		t.Errorf("architecture rules must not fire in test sources, got %d", inTest)
+	}
+}
+
+// Security is the exception: a leaked credential is a leak wherever it lives,
+// and test fixtures are a classic place for real tokens to escape.
+func TestSecurityRulesStillApplyToTestSources(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "src", "commonTest", "kotlin", "AuthTest.kt")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	code := "package com.x\n\nfun t() {\n    Log.d(\"auth\", \"password=hunter2\")\n}\n"
+	if err := os.WriteFile(p, []byte(code), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	catalog := []types.Rule{{
+		ID: "sec-log-pii", Cluster: "security",
+		Severity: types.SeverityError, Status: "live",
+	}}
+	findings, err := RunRegexDetectors(dir, catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) == 0 {
+		t.Fatal("security rules must still fire inside test sources")
+	}
 }

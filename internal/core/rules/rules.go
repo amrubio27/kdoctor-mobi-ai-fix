@@ -43,6 +43,7 @@ type Detector interface {
 func RunRegexDetectors(projectDir string, rules []types.Rule) ([]types.Finding, error) {
 	// Filter live native rules
 	var activeDetectors []Detector
+	var activeRules []types.Rule
 	rulesByID := make(map[string]types.Rule)
 	for _, r := range rules {
 		if r.Status != "live" {
@@ -54,44 +55,64 @@ func RunRegexDetectors(projectDir string, rules []types.Rule) ([]types.Finding, 
 		switch r.ID {
 		case "compose-missing-key":
 			activeDetectors = append(activeDetectors, &ComposeMissingKeyDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "sec-log-pii":
 			activeDetectors = append(activeDetectors, &SecLogPiiDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "sec-webview-javascript-enabled":
 			activeDetectors = append(activeDetectors, &SecWebViewJavascriptEnabledDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "coroutine-dispatchers-hardcoded":
 			activeDetectors = append(activeDetectors, &CoroutineDispatchersHardcodedDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-presentation-depends-on-data":
 			activeDetectors = append(activeDetectors, &ArchPresentationDependsOnDataDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-viewmodel-contract":
 			activeDetectors = append(activeDetectors, &ArchViewModelContractDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-usecase-contract":
 			activeDetectors = append(activeDetectors, &ArchUseCaseContractDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-usecase-multiple-public-methods":
 			activeDetectors = append(activeDetectors, &ArchUseCaseMultiplePublicMethodsDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-misplaced-domain-logic":
 			activeDetectors = append(activeDetectors, &ArchMisplacedDomainLogicDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-misplaced-data-logic":
 			activeDetectors = append(activeDetectors, &ArchMisplacedDataLogicDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-model-mapping-leak":
 			activeDetectors = append(activeDetectors, &ArchModelMappingLeakDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "error-handling-layer-mapping":
 			activeDetectors = append(activeDetectors, &ErrorHandlingLayerMappingDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-viewmodel-mvi-suggestion":
 			activeDetectors = append(activeDetectors, &ArchViewModelMviSuggestionDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "compose-heavy-composable":
 			activeDetectors = append(activeDetectors, &ComposeHeavyComposableDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "compose-graphics-layer":
 			activeDetectors = append(activeDetectors, &ComposeGraphicsLayerDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "compose-recomposition-optimizer":
 			activeDetectors = append(activeDetectors, &ComposeRecompositionOptimizerDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "ui-hardcoded-strings":
 			activeDetectors = append(activeDetectors, &UIHardcodedStringsDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "testability-direct-instantiation":
 			activeDetectors = append(activeDetectors, &TestabilityDirectInstantiationDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-udf-sealed-events":
 			activeDetectors = append(activeDetectors, &ArchUdfSealedEventsDetector{rule: r})
+			activeRules = append(activeRules, r)
 		case "arch-repository-impl-interface":
 			activeDetectors = append(activeDetectors, &ArchRepositoryImplContractDetector{rule: r})
+			activeRules = append(activeRules, r)
 		}
 	}
 
@@ -118,7 +139,11 @@ func RunRegexDetectors(projectDir string, rules []types.Rule) ([]types.Finding, 
 		commentStripped := stripComments(content)
 		commentAndStringStripped := stripCommentsAndStrings(content)
 
-		for _, det := range activeDetectors {
+		isTest := isTestSource(file)
+		for i, det := range activeDetectors {
+			if isTest && i < len(activeRules) && !appliesToTestSources(activeRules[i]) {
+				continue
+			}
 			fileFindings := det.Check(file, content, commentStripped, commentAndStringStripped)
 			findings = append(findings, fileFindings...)
 		}
@@ -1292,4 +1317,43 @@ func (d *ArchRepositoryImplContractDetector) Check(filePath string, original str
 		}
 	}
 	return findings
+}
+
+// testSourceRegex matches the source sets and file names that hold tests, in
+// both the Android layout (src/test, src/androidTest) and the KMP one
+// (commonTest, iosTest, androidHostTest, jvmTest).
+// testDirRegex matches the source sets that hold tests, in both the Android
+// layout (src/test, src/androidTest) and the KMP one (commonTest, iosTest,
+// androidHostTest, jvmTest). Directory names are matched case-insensitively.
+var testDirRegex = regexp.MustCompile(`(?i)(^|/)(test|androidTest|androidHostTest|androidUnitTest|commonTest|iosTest|jvmTest|jsTest|nativeTest)/`)
+
+// testFileRegex matches Kotlin test file names. Deliberately case-SENSITIVE:
+// a case-insensitive suffix also matches ordinary words that happen to end in
+// those letters, such as Latest.kt.
+var testFileRegex = regexp.MustCompile(`(^|/)[A-Za-z0-9_]*(Test|Tests|Spec)\.kt$`)
+
+// isTestSource reports whether a path belongs to test code.
+func isTestSource(path string) bool {
+	return testDirRegex.MatchString(path) || testFileRegex.MatchString(path)
+}
+
+// appliesToTestSources reports whether a rule is meaningful inside test code.
+//
+// Most design rules are not. A ViewModel test legitimately imports from the
+// data layer to build fixtures, instantiates collaborators directly instead of
+// injecting them, and hardcodes strings as expected values. Judging test code
+// by production rules produces pure noise -- on a real 16 KLOC project, all 36
+// critical architecture findings came from test sources, and because critical
+// findings drive the Health Score hardest, those false positives were the
+// single largest contributor to its score.
+//
+// Security is the exception: leaking a credential is a leak wherever it is
+// written, and test fixtures are a classic place for real tokens to escape.
+func appliesToTestSources(r types.Rule) bool {
+	switch r.Cluster {
+	case "security", "memory":
+		return true
+	default:
+		return false
+	}
 }

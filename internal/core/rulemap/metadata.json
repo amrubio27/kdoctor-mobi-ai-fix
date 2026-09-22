@@ -203,6 +203,14 @@
     "status": "planned"
   },
   {
+    "id": "arch-package-declaration-mismatch",
+    "cluster": "architecture",
+    "severity": "warning",
+    "detektRule": "InvalidPackageDeclaration",
+    "status": "live",
+    "fixHint": "Move the file to the folder its package declaration names, or fix the declaration to match where the file lives."
+  },
+  {
     "id": "arch-god-class",
     "cluster": "architecture",
     "severity": "warning",
@@ -252,8 +260,7 @@
     "id": "arch-internal-in-public-api",
     "cluster": "architecture",
     "severity": "error",
-    "detektRule": "InvalidPackageDeclaration",
-    "status": "live",
+    "status": "planned",
     "fixHint": "Do not expose internal types in public API."
   },
   {

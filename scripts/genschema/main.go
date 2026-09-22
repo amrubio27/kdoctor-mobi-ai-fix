@@ -75,6 +75,13 @@ var CatalogRules = []Rule{
 	{ID: "mem-handler-leak", Cluster: "memory", Severity: "warning", Status: "planned"},
 	{ID: "mem-coroutine-job-leak", Cluster: "memory", Severity: "error", Status: "planned"},
 	// 5.5 Architecture (10)
+	// InvalidPackageDeclaration checks that a file sits in the folder its package
+	// declares. It was mapped to arch-internal-in-public-api, which is about
+	// leaking internal types through a public API -- unrelated. Because that id
+	// is architecture/error, the mismatch counted as a non-dilutable critical and
+	// put a hard 15-point ceiling on the score of any project with three such
+	// files, typically test sources where the mismatch is harmless.
+	{ID: "arch-package-declaration-mismatch", Cluster: "architecture", Severity: "warning", DetektRule: "InvalidPackageDeclaration", Status: "live", FixHint: "Move the file to the folder its package declaration names, or fix the declaration to match where the file lives."},
 	{ID: "arch-god-class", Cluster: "architecture", Severity: "warning", DetektRule: "TooManyFunctions", Status: "live", FixHint: "Split class by responsibility."},
 	{ID: "arch-circular-dep", Cluster: "architecture", Severity: "error", Status: "planned"},
 	{ID: "arch-feature-module-public-api-bleed", Cluster: "architecture", Severity: "warning", Status: "planned"},
@@ -82,7 +89,7 @@ var CatalogRules = []Rule{
 	{ID: "arch-data-class-with-logic", Cluster: "architecture", Severity: "warning", Status: "planned"},
 	{ID: "arch-named-arg-required", Cluster: "architecture", Severity: "info", Status: "planned"},
 	{ID: "arch-utility-function-should-be-extension", Cluster: "architecture", Severity: "info", Status: "planned"},
-	{ID: "arch-internal-in-public-api", Cluster: "architecture", Severity: "error", DetektRule: "InvalidPackageDeclaration", Status: "live", FixHint: "Do not expose internal types in public API."},
+	{ID: "arch-internal-in-public-api", Cluster: "architecture", Severity: "error", Status: "planned", FixHint: "Do not expose internal types in public API."},
 	{ID: "arch-package-cycles-kmp", Cluster: "architecture", Severity: "error", Status: "planned"},
 	{ID: "arch-presentation-depends-on-data", Cluster: "architecture", Severity: "error", Status: "live", FixHint: "Presentation layer (@Composable/ViewModel) must not depend on Data layer (data.*, DataSource, DAO, Api, RepositoryImpl). Access data through UseCases or Repository interfaces."},
 	// 5.6 Accessibility (5)
