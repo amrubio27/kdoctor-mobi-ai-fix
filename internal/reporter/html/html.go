@@ -6,7 +6,7 @@ import (
 	"html/template"
 	"io"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 const htmlTemplate = `<!DOCTYPE html>

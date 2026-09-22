@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 func TestLoadBaseline(t *testing.T) {

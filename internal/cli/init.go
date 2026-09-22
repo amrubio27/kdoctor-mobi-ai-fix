@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/adkd/adkd/internal/core/config"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/config"
 )
 
 func NewInitCmd() *cobra.Command {

@@ -1,4 +1,4 @@
-module github.com/adkd/adkd
+module github.com/amrubio27/kdoctor-mobi-ai-fix
 
 go 1.22
 

@@ -10,7 +10,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 const schemaURL = "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json"
@@ -123,7 +123,7 @@ func buildRun(r types.Report) run {
 	return run{
 		Tool: tool{Driver: driver{
 			Name:           "kdoctor",
-			InformationURI: "https://github.com/adkd/adkd",
+			InformationURI: "https://github.com/amrubio27/kdoctor-mobi-ai-fix",
 			Rules:          rules,
 		}},
 		Results: results,

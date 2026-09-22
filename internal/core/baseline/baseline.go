@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/adkd/adkd/internal/core/pathutil"
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/pathutil"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 // SmellBaseline represents the detekt baseline XML structure.

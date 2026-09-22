@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 // Index es un índice in-memory construido desde []types.Rule.

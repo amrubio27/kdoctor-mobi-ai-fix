@@ -28,7 +28,7 @@ b119be4 refactor(detektrunner): limpiar vars zombies y consolidar test helpers
 
 - **Branch**: `main`, working tree dirty pre-commit (closing Tier 1 #1 changes uncommitted).
 - **Working directory local**: `C:\Users\Miguel\Desktop\doctor mobi ai fix`.
-- **Project local module path**: `github.com/adkd/adkd` (placeholder — pendiente GitHub handle del usuario).
+- **Project local module path**: `github.com/amrubio27/kdoctor-mobi-ai-fix` (placeholder — pendiente GitHub handle del usuario).
 
 ---
 
@@ -49,7 +49,7 @@ b119be4 refactor(detektrunner): limpiar vars zombies y consolidar test helpers
 ├── ANDROID_DOCTOR_FIX_AI.md            # V1 rules spec (input original)
 ├── LICENSE                             # MIT
 ├── README.md
-├── go.mod, go.sum                      # module github.com/adkd/adkd
+├── go.mod, go.sum                      # module github.com/amrubio27/kdoctor-mobi-ai-fix
 ├── kdoctor.config.example.yaml         # scaffold para config del usuario (Fase 2)
 ├── kdoctor.exe                         # BUILT binary (gitignored)
 ├── cmd/
@@ -251,7 +251,7 @@ Round-2 arrancó después del cierre de todos los tiers. **NO es trabajo nuevo d
 
 1. **NO commitear nada en `D:\Programacion\RickMortyApp`** — el usuario lo dijo explícitamente. Es su proyecto de prueba; cualquier cambio ahí debe revertirse o consultarse primero. kdoctor es READ-ONLY sobre el proyecto del usuario.
 
-2. **`go.mod` tiene `module github.com/adkd/adkd`** — placeholder. Cuando el usuario defina su handle de GitHub, hay que cambiar esa línea + `go mod tidy`. Reversible sin breakage.
+2. **`go.mod` tiene `module github.com/amrubio27/kdoctor-mobi-ai-fix`** — placeholder. Cuando el usuario defina su handle de GitHub, hay que cambiar esa línea + `go mod tidy`. Reversible sin breakage.
 
 3. **Detekt setup del usuario está en `D:\tools\`** — `detekt-cli.jar` + `detekt.cmd` shim. Fuera de PATH de usuario. kdoctor acepta `--detekt-bin=<ruta_explícita>` para no depender del PATH.
 

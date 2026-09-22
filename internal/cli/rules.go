@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/adkd/adkd/internal/core/rulemap"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/rulemap"
 )
 
 func NewRulesCmd() *cobra.Command {

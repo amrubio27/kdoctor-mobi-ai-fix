@@ -9,15 +9,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/adkd/adkd/internal/aifixer/applier"
-	"github.com/adkd/adkd/internal/aifixer/patchguard"
-	"github.com/adkd/adkd/internal/aifixer/provider"
-	"github.com/adkd/adkd/internal/aifixer/qualityprompt"
-	"github.com/adkd/adkd/internal/core/detektrunner"
-	"github.com/adkd/adkd/internal/core/rulemap"
-	"github.com/adkd/adkd/internal/core/rules"
-	"github.com/adkd/adkd/internal/core/sarif"
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/aifixer/applier"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/aifixer/patchguard"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/aifixer/provider"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/aifixer/qualityprompt"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/detektrunner"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/rulemap"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/rules"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/sarif"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 // fixProvider abstracts the AI provider so the command can be tested with

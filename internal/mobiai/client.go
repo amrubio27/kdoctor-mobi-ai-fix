@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 // Client posts kdoctor findings to a MobiAI Graph-compatible endpoint.

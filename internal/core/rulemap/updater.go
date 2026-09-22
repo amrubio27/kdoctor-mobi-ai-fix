@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 const DefaultRulesURL = "https://raw.githubusercontent.com/amrubio27/kdoctor-mobi-ai-fix/main/rules/metadata.json"

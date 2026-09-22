@@ -3,7 +3,7 @@ package grader
 import (
 	"testing"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 func TestEmptyIs100(t *testing.T) {

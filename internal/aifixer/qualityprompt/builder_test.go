@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 // TestBuildPrompt is preserved verbatim from round-1 so callers and the

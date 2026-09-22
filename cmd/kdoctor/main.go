@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/adkd/adkd/internal/cli"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/cli"
 )
 
 var version = "0.6.0"
