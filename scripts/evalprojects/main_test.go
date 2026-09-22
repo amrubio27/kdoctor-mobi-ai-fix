@@ -14,6 +14,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -181,10 +182,21 @@ func runFixture(t *testing.T, fixturePath string, useRelative bool) {
 	}
 	cmd := exec.CommandContext(ctx, kdoctorTestBin, args...)
 	cmd.Dir = root
-	out, err := cmd.CombinedOutput()
+	// stdout and stderr must stay apart. kdoctor writes the JSON report to
+	// stdout and everything else -- progress, warnings, the first-run detekt
+	// download -- to stderr. CombinedOutput merged them, so on a runner with a
+	// cold cache the report came back prefixed with "Downloading detekt..." and
+	// failed to parse. It passed locally only because the jar was already
+	// cached, which is the worst kind of green.
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	out := stdout.Bytes()
+	diagnostics := stderr.String()
 	if err != nil {
-		t.Fatalf("kdoctor scan exit=%v\n--- output ---\n%s\n--- end ---",
-			err, truncateForLog(string(out), 4000))
+		t.Fatalf("kdoctor scan exit=%v\n--- stdout ---\n%s\n--- stderr ---\n%s\n--- end ---",
+			err, truncateForLog(string(out), 3000), truncateForLog(diagnostics, 2000))
 	}
 	// A degraded scan evaluates only the native rules, so the fixture drops to
 	// ~4 findings and its score climbs out of band. Failing on the band alone
@@ -196,10 +208,10 @@ func runFixture(t *testing.T, fixturePath string, useRelative bool) {
 	// gets an explained skip instead. That is not the silent skip this suite used
 	// to do on a hardcoded D:/tools path: the scan was genuinely attempted and the
 	// reason is printed.
-	if strings.Contains(string(out), "Partial scan") {
+	if strings.Contains(diagnostics, "Partial scan") {
 		msg := fmt.Sprintf("detekt did not run, so %s measured only the native rules "+
 			"and its score band does not apply.\nkdoctor said:\n%s",
-			filepath.Base(fixturePath), truncateForLog(string(out), 1500))
+			filepath.Base(fixturePath), truncateForLog(diagnostics, 1500))
 		if os.Getenv("KDOCTOR_REQUIRE_DETEKT") != "" {
 			t.Fatal(msg)
 		}

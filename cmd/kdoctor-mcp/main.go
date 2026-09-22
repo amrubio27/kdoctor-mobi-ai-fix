@@ -19,6 +19,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -341,14 +342,24 @@ func execTool(bin string, argv []string, workDir string) rpcResponse {
 		cmd.Dir = workDir
 	}
 
-	outBytes, err := cmd.CombinedOutput()
-	out := string(outBytes)
+	// Keep the streams apart. kdoctor puts its JSON report on stdout and
+	// everything else on stderr: progress, warnings, and the one-off detekt
+	// download on first use. CombinedOutput merged them, so the agent on the
+	// other end of this server could receive a report prefixed with
+	// "Downloading detekt..." and fail to parse it.
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	out := stdout.String()
+	diagnostics := stderr.String()
 	if err != nil {
 		return rpcResponse{
 			JSONRPC: "2.0",
 			Result: map[string]any{
 				"content": []map[string]string{
-					{"type": "text", "text": out},
+					// On failure the explanation is on stderr, so pass both along.
+					{"type": "text", "text": out + diagnostics},
 				},
 				"isError": true,
 				"error":   fmt.Sprintf("%v", err),
