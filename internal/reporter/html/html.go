@@ -2,9 +2,9 @@
 package html
 
 import (
-	"encoding/json"
 	"html/template"
 	"io"
+	"sort"
 
 	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
@@ -163,11 +163,18 @@ const htmlTemplate = `<!DOCTYPE html>
     </div>
 
     <div class="filters" id="filter-container">
-      <button class="filter-btn active" onclick="filterFindings('all')">All ({{.Report.Summary.Total}})</button>
-      <button class="filter-btn" onclick="filterFindings('error')">Errors ({{.Report.Summary.Errors}})</button>
-      <button class="filter-btn" onclick="filterFindings('warning')">Warnings ({{.Report.Summary.Warnings}})</button>
-      <button class="filter-btn" onclick="filterFindings('info')">Info ({{.Report.Summary.Info}})</button>
+      <button class="filter-btn active" data-value="all">All ({{.Report.Summary.Total}})</button>
+      <button class="filter-btn" data-value="error">Errors ({{.Report.Summary.Errors}})</button>
+      <button class="filter-btn" data-value="warning">Warnings ({{.Report.Summary.Warnings}})</button>
+      <button class="filter-btn" data-value="info">Info ({{.Report.Summary.Info}})</button>
     </div>
+
+    {{if .Clusters}}
+    <div class="filters" id="cluster-filters">
+      <button class="filter-btn active" data-value="all">All clusters</button>
+      {{range .Clusters}}<button class="filter-btn" data-value="{{.Name}}">{{.Name}} ({{.Count}})</button>{{end}}
+    </div>
+    {{end}}
 
     <div id="findings-list">
       {{range .Report.Findings}}
@@ -189,18 +196,43 @@ const htmlTemplate = `<!DOCTYPE html>
   </div>
 
   <script>
-    function filterFindings(sev) {
-      document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-      event.target.classList.add('active');
+    // Severity and cluster filters are independent, so a card shows only when
+    // it satisfies both. The previous version read the implicit global "event"
+    // (non-standard, broken under strict mode) and ignored data-cluster
+    // entirely, even though every card has emitted one from the start.
+    (function () {
+      var active = { severity: 'all', cluster: 'all' };
 
-      document.querySelectorAll('.finding-card').forEach(card => {
-        if (sev === 'all' || card.getAttribute('data-severity') === sev) {
-          card.style.display = 'block';
-        } else {
-          card.style.display = 'none';
-        }
+      function apply() {
+        document.querySelectorAll('.finding-card').forEach(function (card) {
+          var sevOk = active.severity === 'all' ||
+            card.getAttribute('data-severity') === active.severity;
+          var clusterOk = active.cluster === 'all' ||
+            card.getAttribute('data-cluster') === active.cluster;
+          card.style.display = (sevOk && clusterOk) ? 'block' : 'none';
+        });
+      }
+
+      function wire(containerId, key) {
+        var container = document.getElementById(containerId);
+        if (!container) { return; }
+        container.querySelectorAll('.filter-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            container.querySelectorAll('.filter-btn').forEach(function (b) {
+              b.classList.remove('active');
+            });
+            btn.classList.add('active');
+            active[key] = btn.getAttribute('data-value');
+            apply();
+          });
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', function () {
+        wire('filter-container', 'severity');
+        wire('cluster-filters', 'cluster');
       });
-    }
+    })();
   </script>
 </body>
 </html>
@@ -213,15 +245,39 @@ func RenderHTML(r types.Report, w io.Writer) error {
 		return err
 	}
 	data := struct {
-		Report types.Report
+		Report   types.Report
+		Clusters []clusterCount
 	}{
-		Report: r,
+		Report:   r,
+		Clusters: countClusters(r.Findings),
 	}
 	return tmpl.Execute(w, data)
 }
 
-// RenderHTMLJSON es un helper de serialización segura.
-func RenderHTMLJSON(r types.Report) (string, error) {
-	b, err := json.Marshal(r)
-	return string(b), err
+// clusterCount feeds the cluster filter row.
+type clusterCount struct {
+	Name  string
+	Count int
+}
+
+// countClusters tallies findings per cluster, noisiest first, so the reader
+// can isolate the dominant category in one click.
+func countClusters(findings []types.Finding) []clusterCount {
+	counts := map[string]int{}
+	for _, f := range findings {
+		if f.Cluster != "" {
+			counts[f.Cluster]++
+		}
+	}
+	out := make([]clusterCount, 0, len(counts))
+	for name, n := range counts {
+		out = append(out, clusterCount{Name: name, Count: n})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Count != out[j].Count {
+			return out[i].Count > out[j].Count
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
 }
