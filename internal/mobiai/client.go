@@ -80,31 +80,18 @@ func (c *Client) UploadFindings(ctx context.Context, projectPath string, finding
 }
 
 type uploadPayload struct {
-	Tool        string       `json:"tool"`
-	ProjectPath string       `json:"projectPath"`
-	Findings    []annotation `json:"findings"`
+	Tool        string                   `json:"tool"`
+	ProjectPath string                   `json:"projectPath"`
+	Findings    []types.MobiaiAnnotation `json:"findings"`
 }
 
-type annotation struct {
-	URI       string `json:"uri"`
-	StartLine int    `json:"startLine"`
-	StartCol  int    `json:"startColumn"`
-	RuleID    string `json:"ruleId"`
-	Severity  string `json:"severity"`
-	Message   string `json:"message"`
-}
-
-func toAnnotations(findings []types.Finding) []annotation {
-	out := make([]annotation, 0, len(findings))
+// toAnnotations flattens findings to the wire shape. The struct and the
+// conversion used to be duplicated verbatim here and in types.MobiaiAnnotation;
+// types is the single source of truth.
+func toAnnotations(findings []types.Finding) []types.MobiaiAnnotation {
+	out := make([]types.MobiaiAnnotation, 0, len(findings))
 	for _, f := range findings {
-		out = append(out, annotation{
-			URI:       f.File,
-			StartLine: f.Line,
-			StartCol:  f.Column,
-			RuleID:    f.ID,
-			Severity:  string(f.Severity),
-			Message:   f.Message,
-		})
+		out = append(out, f.ToMobiaiAnnotation())
 	}
 	return out
 }
