@@ -18,6 +18,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v1.1.0] — 2026-09-22
 
+### Fixed — el Health Score no medía lo que decía medir
+- **Un proyecto real de 16,6 KLOC daba 0/100**, y un 0 no distingue "mejorable"
+  de "desahuciado". Tres causas, encontradas midiendo:
+  - `sqrt(KLOC)` **no normaliza**. Los hallazgos crecen linealmente con el
+    tamaño, así que dividir por la raíz deja un residuo creciente: con la misma
+    densidad de deuda, 4 KLOC daba 15 y 16/60/200 KLOC daban 0. Ahora se divide
+    por KLOC, que es lo que "calibrado por KLOC" debía significar.
+  - **Las reglas de diseño disparaban dentro del código de test.** En ese
+    proyecto, los 36 hallazgos críticos de arquitectura venían **todos** de
+    fuentes de test: un test de ViewModel importa legítimamente de la capa de
+    datos. Las reglas de arquitectura y diseño ya no se evalúan ahí; las de
+    seguridad sí, porque una credencial filtrada lo está en cualquier fichero.
+  - **Los hallazgos críticos eran inmunes al tamaño.** Dos reglas al tope fijaban
+    30 puntos con 2 KLOC o con 500, así que el score dejaba de responder "cuánta
+    deuda hay" para responder "¿tienes dos reglas críticas?". Ahora se dividen por
+    `sqrt(KLOC)` mientras el resto se divide por KLOC: siguen dominando sin clavar
+    el resultado.
+- Otro mapeo erróneo del mismo tipo que los de Compose:
+  `InvalidPackageDeclaration` (el fichero no está en la carpeta que declara su
+  paquete) apuntaba a `arch-internal-in-public-api` (fuga de tipos internos en la
+  API pública). Como ese id es `architecture/error`, contaba como crítico no
+  diluible y ponía un techo duro de 15 puntos a cualquier proyecto con tres
+  ficheros así, normalmente de test.
+
+Calibrado contra referencias públicas, no eligiendo constantes a ojo:
+
+| proyecto | score |
+|---|---|
+| `skydoves/pokedex-kmp` | 85 |
+| IoTInventoryApp (16,6 KLOC) | 84 (antes 0) |
+| `bad-project` (fixture) | 55 |
+| `ArisGuimera/Curso-TestingAndroid` | 46 |
+| `good-project` (fixture) | 100 |
+
+Límite conocido: por debajo de ~1 KLOC el score no es fiable. El divisor tiene
+suelo en 1.0, así que un fixture de 120 líneas no se divide por 0,12, y a ese
+tamaño un puñado de saltos de línea ausentes mueve mucho el número. La densidad
+necesita código que medir.
+
 ### Fixed — funcionalidad anunciada que no funcionaba
 - **`--fail-below` no tenía efecto salvo en consola.** El `switch` de formato de
   salida hacía `return` en cada rama, así que el quality gate (y el volcado a
