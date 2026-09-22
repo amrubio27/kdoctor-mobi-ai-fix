@@ -7,8 +7,13 @@ ifeq ($(OS),Windows_NT)
 endif
 
 GO := go
-RICK_MORTY_APP ?= D:/Programacion/RickMortyApp
-DETEKT_BIN ?= D:/tools/detekt.cmd
+# Optional, for the ad-hoc e2e target. Both default to empty: they used to
+# point at one contributor machine (D:/Programacion/RickMortyApp,
+# D:/tools/detekt.cmd), which HONEY.md forbids and which made the target
+# fail confusingly for everyone else. kdoctor provisions detekt itself, so
+# DETEKT_BIN is only needed for an offline or pinned run.
+RICK_MORTY_APP ?=
+DETEKT_BIN ?=
 
 .PHONY: all
 all: build

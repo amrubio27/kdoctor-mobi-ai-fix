@@ -2,19 +2,54 @@
   "name": "kdoctor",
   "displayName": "kdoctor (Android Doctor)",
   "description": "Static analysis + AI auto-fix Health Score for Android/KMP/CMP.",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "author": "kdoctor contributors",
   "license": "MIT",
-  "homepage": "https://github.com/kdoctor/kdoctor",
-  "repository": "github.com/kdoctor/kdoctor",
+  "homepage": "https://github.com/amrubio27/kdoctor-mobi-ai-fix",
+  "repository": "github.com/amrubio27/kdoctor-mobi-ai-fix",
   "commands": [
-    { "name": "scan",  "binary": "kdoctor",  "args": ["scan"]  },
-    { "name": "fix",   "binary": "kdoctor",  "args": ["fix"]   },
-    { "name": "init",  "binary": "kdoctor",  "args": ["init"]  },
-    { "name": "hook",  "binary": "kdoctor",  "args": ["hook"]  },
-    { "name": "doctor","binary": "kdoctor",  "args": ["doctor"] }
+    {
+      "name": "scan",
+      "binary": "kdoctor",
+      "args": [
+        "scan"
+      ]
+    },
+    {
+      "name": "fix",
+      "binary": "kdoctor",
+      "args": [
+        "fix"
+      ]
+    },
+    {
+      "name": "init",
+      "binary": "kdoctor",
+      "args": [
+        "init"
+      ]
+    },
+    {
+      "name": "rules",
+      "binary": "kdoctor",
+      "args": [
+        "rules"
+      ]
+    },
+    {
+      "name": "doctor",
+      "binary": "kdoctor",
+      "args": [
+        "doctor"
+      ]
+    }
   ],
-  "skills": ["./SKILL.md"],
+  "skills": [
+    "./SKILL.md"
+  ],
   "hooks": [],
-  "depends_on": ["core"]
+  "depends_on": [
+    "core"
+  ],
+  "_note": "MobiAI does not consume this manifest today: it installs packs of SKILL.md from its own embedded catalog (`mobiai skills add <pack>`). Kept as the proposed shape for a kdoctor pack - see docs/integrations/mobiai.md."
 }

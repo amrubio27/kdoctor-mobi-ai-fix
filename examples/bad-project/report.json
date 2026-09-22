@@ -1,12 +1,12 @@
 {
   "schemaVersion": "3",
   "projectType": "android",
-  "healthScore": 82,
+  "healthScore": 55,
   "summary": {
     "errors": 3,
-    "warnings": 1,
-    "info": 2,
-    "total": 6
+    "warnings": 21,
+    "info": 4,
+    "total": 28
   },
   "findings": [
     {
@@ -14,22 +14,245 @@
       "cluster": "dead-code",
       "rule": "detekt.style.UnusedImports",
       "severity": "info",
-      "file": "file:///C:/Users/Miguel/Desktop/doctor%20mobi%20ai%20fix/examples/bad-project/src/main/kotlin/bad/BadCode.kt",
+      "file": "src/main/kotlin/bad/BadCode.kt",
       "line": 34,
       "column": 1,
       "message": "The import 'kotlin.math.cos' is unused.",
       "fixHint": "Remove the import."
     },
     {
+      "id": "unmapped:detekt.style.MayBeConst",
+      "cluster": "unknown",
+      "rule": "detekt.style.MayBeConst",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 44,
+      "column": 9,
+      "message": "apiKey can be a `const val`."
+    },
+    {
+      "id": "unmapped:detekt.style.MayBeConst",
+      "cluster": "unknown",
+      "rule": "detekt.style.MayBeConst",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 45,
+      "column": 9,
+      "message": "password can be a `const val`."
+    },
+    {
+      "id": "unmapped:detekt.style.MayBeConst",
+      "cluster": "unknown",
+      "rule": "detekt.style.MayBeConst",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 46,
+      "column": 9,
+      "message": "token can be a `const val`."
+    },
+    {
       "id": "coroutine-global-scope",
       "cluster": "coroutines",
       "rule": "detekt.coroutines.GlobalCoroutineUsage",
       "severity": "error",
-      "file": "file:///C:/Users/Miguel/Desktop/doctor%20mobi%20ai%20fix/examples/bad-project/src/main/kotlin/bad/BadCode.kt",
+      "file": "src/main/kotlin/bad/BadCode.kt",
       "line": 51,
       "column": 5,
       "message": "This use of GlobalScope should be replaced by `CoroutineScope` or `coroutineScope`.",
       "fixHint": "Use injected CoroutineScope (e.g., viewModelScope)."
+    },
+    {
+      "id": "unmapped:detekt.style.FunctionOnlyReturningConstant",
+      "cluster": "unknown",
+      "rule": "detekt.style.FunctionOnlyReturningConstant",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 57,
+      "column": 13,
+      "message": "neverCalledHelper is returning a constant. Prefer declaring a constant instead."
+    },
+    {
+      "id": "dead-unused-private-fun",
+      "cluster": "dead-code",
+      "rule": "detekt.style.UnusedPrivateMember",
+      "severity": "info",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 57,
+      "column": 13,
+      "message": "Private function `neverCalledHelper` is unused.",
+      "fixHint": "Remove unused private declaration."
+    },
+    {
+      "id": "arch-god-class",
+      "cluster": "architecture",
+      "rule": "detekt.complexity.TooManyFunctions",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 65,
+      "column": 7,
+      "message": "Class 'GodClass' with '13' functions detected. Defined threshold inside classes is set to '11'",
+      "fixHint": "Split class by responsibility."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 66,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 67,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 68,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 69,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 70,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 71,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 72,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 73,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 74,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 75,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 76,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 77,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "unmapped:detekt.empty-blocks.EmptyFunctionBlock",
+      "cluster": "unknown",
+      "rule": "detekt.empty-blocks.EmptyFunctionBlock",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 78,
+      "column": 13,
+      "message": "This empty block of code can be removed."
+    },
+    {
+      "id": "naming-variable-convention",
+      "cluster": "naming",
+      "rule": "detekt.naming.VariableNaming",
+      "severity": "info",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 84,
+      "column": 9,
+      "message": "Variable names should match the pattern: [a-z][A-Za-z0-9]*",
+      "fixHint": "Variables must be lowerCamelCase (e.g., userName not UserName)."
+    },
+    {
+      "id": "unmapped:detekt.style.UnusedPrivateProperty",
+      "cluster": "unknown",
+      "rule": "detekt.style.UnusedPrivateProperty",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 84,
+      "column": 9,
+      "message": "Private property `_unusedLocal` is unused."
+    },
+    {
+      "id": "unmapped:detekt.style.UnusedPrivateProperty",
+      "cluster": "unknown",
+      "rule": "detekt.style.UnusedPrivateProperty",
+      "severity": "warning",
+      "file": "src/main/kotlin/bad/BadCode.kt",
+      "line": 121,
+      "column": 9,
+      "message": "Private property `dispatcher` is unused."
     },
     {
       "id": "sec-webview-javascript-enabled",

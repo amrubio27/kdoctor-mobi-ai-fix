@@ -84,7 +84,7 @@ func TestCatalogConvergence(t *testing.T) {
 	}
 }
 
-func TestGeneratedCatalogHas78Rules(t *testing.T) {
+func TestGeneratedCatalogMatchesSource(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join("..", "..", "rules", "metadata.json"))
 	if err != nil {
 		t.Fatalf("glob: %v", err)
@@ -100,8 +100,11 @@ func TestGeneratedCatalogHas78Rules(t *testing.T) {
 	if err := json.Unmarshal(data, &rules); err != nil {
 		t.Fatal(err)
 	}
-	if len(rules) != 100 {
-		t.Fatalf("expected 100 rules, got %d", len(rules))
+	// Derive the expectation from the source of truth rather than restating
+	// a literal that goes stale every time a rule is added (this assertion
+	// lived in a function named ...Has78Rules while checking for 100).
+	if len(rules) != len(CatalogRules) {
+		t.Fatalf("generated catalog has %d rules, CatalogRules has %d", len(rules), len(CatalogRules))
 	}
 	required := []string{"id", "cluster", "severity", "status"}
 	for i, r := range rules {
@@ -158,9 +161,41 @@ func TestLiveRulesHaveDetektMapping(t *testing.T) {
 	}
 }
 
-func TestCatalogRulesCountSanity(t *testing.T) {
-	if len(CatalogRules) != 100 {
-		t.Fatalf("CatalogRules debe tener 100 entries; tiene %d", len(CatalogRules))
+// TestCatalogInvariants replaces a hardcoded rule count with the properties
+// that actually matter. The count check could only ever tell you the number
+// changed; it never caught the two Compose rules that shared a DetektRule key
+// and silently overwrote each other in rulemap.BuildIndex.
+func TestCatalogInvariants(t *testing.T) {
+	if len(CatalogRules) == 0 {
+		t.Fatal("CatalogRules is empty")
+	}
+	if problems := validateCatalog(CatalogRules); len(problems) > 0 {
+		for _, p := range problems {
+			t.Error(p)
+		}
+	}
+}
+
+// TestValidateCatalogDetectsDuplicateDetektRule proves the guard works: a
+// clean catalog is not evidence that the check does anything.
+func TestValidateCatalogDetectsDuplicateDetektRule(t *testing.T) {
+	problems := validateCatalog([]Rule{
+		{ID: "a", Cluster: "compose-performance", Severity: "error", Status: "live", DetektRule: "Compose:Same"},
+		{ID: "b", Cluster: "compose-performance", Severity: "error", Status: "live", DetektRule: "Compose:Same"},
+	})
+	if len(problems) == 0 {
+		t.Fatal("two live rules sharing a DetektRule must be reported")
+	}
+}
+
+// A planned rule cannot collide: only live rules are indexed.
+func TestValidateCatalogIgnoresPlannedCollisions(t *testing.T) {
+	problems := validateCatalog([]Rule{
+		{ID: "a", Cluster: "compose-performance", Severity: "error", Status: "live", DetektRule: "Compose:Same"},
+		{ID: "b", Cluster: "compose-performance", Severity: "error", Status: "planned", DetektRule: "Compose:Same"},
+	})
+	if len(problems) != 0 {
+		t.Fatalf("planned rules must not trip the collision check: %v", problems)
 	}
 }
 

@@ -18,6 +18,7 @@
 /kdoctor-detekt.init.gradle.kts
 /build/
 /.gradle/
+**/.gradle/
 
 # IDE
 .idea/
@@ -31,3 +32,6 @@ nul
 
 # Freebuff
 .freebuff/
+
+# Output of `kdoctor fix` (a remediation plan, not source)
+fixes.md

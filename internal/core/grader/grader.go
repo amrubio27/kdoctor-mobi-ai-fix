@@ -8,8 +8,13 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
+
+// minKLOCForScaling is the smallest divisor applied when normalising. Below
+// one thousand lines a project has too little code for density to mean much,
+// and dividing by, say, 0.12 KLOC would multiply its penalties eightfold.
+const minKLOCForScaling = 1.0
 
 // Score calcula la puntuación determinista de salud.
 func Score(findings []types.Finding) (int, types.Summary) {
@@ -124,11 +129,36 @@ func ScoreWithKLOC(findings []types.Finding, totalLines int) (int, types.Summary
 		infoPenalty = 10.0
 	}
 
-	// Smooth continuous scale factor based on KLOC (sqrt function, no 300-line cliff)
+	// Normalise by KLOC, not by its square root.
+	//
+	// Findings grow roughly linearly with project size, so dividing by
+	// sqrt(KLOC) leaves a residue that still grows like sqrt(size): with the
+	// same density of problems, 4 KLOC scored 15 while 16, 60 and 200 KLOC all
+	// scored 0. Every mid-sized project collapsed to the floor, and a 0 cannot
+	// tell "needs work" from "abandon hope". Dividing by KLOC makes the score a
+	// debt *density*, which is what "calibrated by KLOC" was meant to mean and
+	// what makes two projects comparable.
+	//
+	// The 1.0 floor keeps small projects from being flattered by division; see
+	// minKLOCForScaling.
 	kloc := float64(totalLines) / 1000.0
-	scaleFactor := math.Max(1.0, math.Sqrt(kloc))
+	scaleFactor := math.Max(minKLOCForScaling, kloc)
 
-	totalPenalty := criticalPenalty + ((regularPenalty + infoPenalty) / scaleFactor)
+	// Critical findings are normalised too, but by sqrt(KLOC) rather than KLOC,
+	// so they still weigh far more than anything else: their share of the score
+	// grows like sqrt(size) relative to the rest.
+	//
+	// They used to be fully immune to size, on the argument that a PII leak is a
+	// PII leak whatever the project measures. True, but the effect was that two
+	// critical rules at their cap pinned 30 points regardless of whether the
+	// project was 2 KLOC or 500, and the score stopped answering "how much debt"
+	// and started answering "do you have two critical rules". On a real 16 KLOC
+	// project that was 62% of the total penalty.
+	//
+	// sqrt was the wrong curve for the whole score and is the right one here.
+	criticalScale := math.Max(minKLOCForScaling, math.Sqrt(kloc))
+
+	totalPenalty := (criticalPenalty / criticalScale) + ((regularPenalty + infoPenalty) / scaleFactor)
 
 	score := 100 - int(math.Round(totalPenalty))
 	if score > 100 {

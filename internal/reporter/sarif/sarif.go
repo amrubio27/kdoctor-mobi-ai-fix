@@ -10,7 +10,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 const schemaURL = "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json"
@@ -83,33 +83,40 @@ func Write(r types.Report, w io.Writer) error {
 
 func buildRun(r types.Report) run {
 	// Index único de reglas — emitimos una `ruleDecl` por regla distinta.
+	// ruleIdentity is the single identifier used BOTH in the rules[] table and
+	// in results[].ruleId. They used to disagree: declarations were keyed on
+	// f.Rule (the detekt rule name) while results emitted f.ID (the kdoctor id),
+	// so for every detekt-sourced finding GitHub Code Scanning received a ruleId
+	// that matched no declared rule. kdoctor ids are the canonical ones; f.Rule
+	// is kept as the rule Name for traceability.
 	unique := map[string]bool{}
 	ordered := []string{}
+	names := map[string]string{}
 	for _, f := range r.Findings {
-		if f.Rule == "" {
-			continue
-		}
-		if !unique[f.Rule] {
-			unique[f.Rule] = true
-			ordered = append(ordered, f.Rule)
+		id := ruleIdentity(f)
+		if !unique[id] {
+			unique[id] = true
+			ordered = append(ordered, id)
+			names[id] = f.Rule
 		}
 	}
 	sort.Strings(ordered)
 
 	rules := make([]ruleDecl, 0, len(ordered))
 	for _, id := range ordered {
-		rd := ruleDecl{ID: id, Name: id}
+		name := names[id]
+		if name == "" {
+			name = id
+		}
+		rd := ruleDecl{ID: id, Name: name}
 		rd.ShortDescription.Text = "kdoctor: " + id
 		rules = append(rules, rd)
 	}
 
 	results := make([]result, 0, len(r.Findings))
 	for _, f := range r.Findings {
-		if f.Rule == "" {
-			continue
-		}
 		results = append(results, result{
-			RuleID:  f.ID,
+			RuleID:  ruleIdentity(f),
 			Level:   levelFromSeverity(f.Severity),
 			Message: messageT{Text: f.Message},
 			Locations: []location{{
@@ -123,7 +130,7 @@ func buildRun(r types.Report) run {
 	return run{
 		Tool: tool{Driver: driver{
 			Name:           "kdoctor",
-			InformationURI: "https://github.com/adkd/adkd",
+			InformationURI: "https://github.com/amrubio27/kdoctor-mobi-ai-fix",
 			Rules:          rules,
 		}},
 		Results: results,
@@ -140,4 +147,18 @@ func levelFromSeverity(s types.Severity) string {
 		return "note"
 	}
 	return "warning"
+}
+
+// ruleIdentity returns the canonical SARIF rule id for a finding: the kdoctor
+// rule id when present, else the upstream (detekt) rule name, else a stable
+// placeholder. Findings are never dropped from the report just because one of
+// those fields is empty.
+func ruleIdentity(f types.Finding) string {
+	if f.ID != "" {
+		return f.ID
+	}
+	if f.Rule != "" {
+		return f.Rule
+	}
+	return "kdoctor-unknown"
 }

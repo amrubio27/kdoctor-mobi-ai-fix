@@ -28,6 +28,12 @@ type Config struct {
 	Rules       map[string]string   `yaml:"rules"` // ruleID or clusterID -> severity ("off" disables)
 	Score       struct {
 		FailBelow int `yaml:"failBelow"`
+
+		// FailBelowSet distinguishes "the user wrote failBelow" from "Load
+		// filled in the default". Callers that enforce a quality gate must
+		// not impose a threshold nobody asked for, and without this they
+		// cannot tell the two apart.
+		FailBelowSet bool `yaml:"-"`
 	} `yaml:"score"`
 	AiFixer struct {
 		Provider string `yaml:"provider"`
@@ -105,6 +111,8 @@ func Load(path string) (Config, error) {
 	}
 	if c.Score.FailBelow == 0 {
 		c.Score.FailBelow = 80
+	} else {
+		c.Score.FailBelowSet = true
 	}
 	if c.AiFixer.Provider == "" {
 		c.AiFixer.Provider = "auto"

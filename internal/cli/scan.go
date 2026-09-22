@@ -9,24 +9,25 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/adkd/adkd/internal/core/baseline"
-	"github.com/adkd/adkd/internal/core/config"
-	"github.com/adkd/adkd/internal/core/detektrunner"
-	"github.com/adkd/adkd/internal/core/diff"
-	"github.com/adkd/adkd/internal/core/grader"
-	"github.com/adkd/adkd/internal/core/rulemap"
-	"github.com/adkd/adkd/internal/core/rules"
-	"github.com/adkd/adkd/internal/core/sarif"
-	"github.com/adkd/adkd/internal/core/types"
-	"github.com/adkd/adkd/internal/mobiai"
-	"github.com/adkd/adkd/internal/reporter/console"
-	htmlrep "github.com/adkd/adkd/internal/reporter/html"
-	jsonrep "github.com/adkd/adkd/internal/reporter/jsonreporter"
-	mdrep "github.com/adkd/adkd/internal/reporter/markdown"
-	sarifrep "github.com/adkd/adkd/internal/reporter/sarif"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/baseline"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/config"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/detektrunner"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/diff"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/grader"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/pathutil"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/rulemap"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/rules"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/mobiai"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/reporter/console"
+	htmlrep "github.com/amrubio27/kdoctor-mobi-ai-fix/internal/reporter/html"
+	jsonrep "github.com/amrubio27/kdoctor-mobi-ai-fix/internal/reporter/jsonreporter"
+	mdrep "github.com/amrubio27/kdoctor-mobi-ai-fix/internal/reporter/markdown"
+	sarifrep "github.com/amrubio27/kdoctor-mobi-ai-fix/internal/reporter/sarif"
 )
 
 // ErrFailBelow se devuelve desde runScan cuando el Health Score cae por
@@ -65,6 +66,8 @@ type scanFlags struct {
 	asSARIF           bool
 	projectType       string
 	preferStandalone  bool
+	detektMode        string
+	noDownload        bool
 	detektBin         string
 	projectDir        string
 	failBelow         int
@@ -115,7 +118,9 @@ Por defecto: rich console.
 	cmd.Flags().BoolVar(&f.asJSON, "json", false, "output JSON instead of console")
 	cmd.Flags().BoolVar(&f.asSARIF, "sarif", false, "output SARIF 2.1.0 (GitHub Code Scanning)")
 	cmd.Flags().StringVar(&f.projectType, "type", "android", "project type: android|kmp|cmp")
-	cmd.Flags().BoolVar(&f.preferStandalone, "prefer-standalone", false, "use standalone detekt binary if available")
+	cmd.Flags().BoolVar(&f.preferStandalone, "prefer-standalone", false, "deprecated: standalone is now the default (kept so existing scripts keep working)")
+	cmd.Flags().StringVar(&f.detektMode, "detekt-mode", "auto", "how to run detekt: auto|standalone|gradle")
+	cmd.Flags().BoolVar(&f.noDownload, "no-download", false, "never fetch detekt over the network; use only a cached or explicit binary")
 	cmd.Flags().StringVar(&f.detektBin, "detekt-bin", "", "explicit path to detekt binary (overrides PATH lookup)")
 	cmd.Flags().StringVar(&f.projectDir, "project-dir", "", "project directory to scan (default: cwd)")
 	cmd.Flags().IntVar(&f.failBelow, "fail-below", 0, "non-zero exit code if health score is below this value")
@@ -163,46 +168,17 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 		fmt.Fprintf(cmd.OutOrStdout(), "Loaded %d rules from %s (%s)\n", len(ruleCatalog), loadResult.Source, loadResult.Path)
 	}
 
-	// 2. Detectar modo y correr Detekt.
-	mode := detektrunner.Detect(wd, f.preferStandalone, f.detektBin)
+	// 2. Resolver estrategia de detekt y ejecutarla (fail-soft).
 	sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt.sarif")
-
-	if f.verbose {
-		fmt.Fprintf(cmd.OutOrStdout(), "[kdoctor] Scanner strategy: %s (explicit bin: %q, preferStandalone: %v)\n", mode, f.detektBin, f.preferStandalone)
-	}
-
-	// Ocultar por defecto la salida del subproceso detekt para evitar que
-	// los warnings del JVM (sun.misc.Unsafe) contaminen el reporte. El flag
-	// --verbose permite volver a mostrar esa salida.
-	var detektOut io.Writer
-	if f.verbose {
-		detektOut = cmd.OutOrStdout()
-	} else {
-		detektOut = io.Discard
-	}
-
-	var raw []types.Finding
-	if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
-		ProjectDir:     wd,
-		SARIFOutput:    sarifPath,
-		UseStandalone:  mode == detektrunner.ModeStandalone,
-		StandalonePath: f.detektBin,
-		Stdout:         detektOut,
-	}); err != nil {
-		// Modo Fail-Soft: si detekt no pudo ejecutarse (e.g. sin gradle task o sin binario),
-		// avisar en stderr pero continuar el escaneo con los detectores nativos Go de kdoctor.
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: detekt execution skipped or failed (%v). Falling back to native kdoctor rules.\n", err)
-	} else {
-		// 3. Parsear SARIF si se generó.
-		if file, err := os.Open(sarifPath); err == nil {
-			defer func() { _ = file.Close() }()
-			if parsed, err := sarif.Parse(file); err == nil {
-				raw = parsed
-			} else {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: parse detekt sarif: %v\n", err)
-			}
-		}
-	}
+	raw := runDetektPhase(context.Background(), cmd, detektPhaseOptions{
+		ProjectDir:  wd,
+		SARIFPath:   sarifPath,
+		ExplicitBin: f.detektBin,
+		Mode:        f.detektModeValue(),
+		NoDownload:  f.noDownload,
+		Verbose:     f.verbose,
+		Catalog:     ruleCatalog,
+	})
 
 	// 4. Correr detectores regex nativos en Go.
 	nativeFindings, err := rules.RunRegexDetectors(wd, ruleCatalog)
@@ -215,11 +191,33 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	idx := rulemap.BuildIndex(ruleCatalog)
 	mapped := idx.Map(raw)
 
+	// 5a-pre. Homogeneizar rutas antes de cualquier filtrado o reporte.
+	//
+	// Native detectors emit project-relative paths, detekt emits absolute
+	// file:// URIs. Reports carried that mix straight through, so a SARIF
+	// uploaded to GitHub Code Scanning pointed at the scanning machine and
+	// resolved to nothing. Normalising here means every downstream consumer
+	// (baseline, diff, grader, every reporter) sees one shape.
+	for i := range mapped {
+		mapped[i].File = pathutil.RelativeToProject(mapped[i].File, wd)
+	}
+
 	// 5a. Aplicar overrides de kdoctor.config.yaml
 	configPath := filepath.Join(wd, "kdoctor.config.yaml")
+	// config.Load() returns Default() for a missing file, and that default
+	// carries failBelow: 80. Knowing whether the file actually exists is what
+	// keeps step 8 from imposing a threshold nobody asked for.
+	_, statErr := os.Stat(configPath)
+	configExists := statErr == nil
 	cfg, err := config.Load(configPath)
-	if err == nil {
+	switch {
+	case err == nil:
 		mapped = rulemap.ApplyOverrides(mapped, cfg.Excludes, cfg.Rules)
+	case !os.IsNotExist(err):
+		// A malformed kdoctor.config.yaml silently skipped every override,
+		// so users saw findings they had explicitly turned off with no clue
+		// why. A missing file is still fine - that is the default case.
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: %s could not be read (%v); rule overrides and excludes were NOT applied.\n", configPath, err)
 	}
 
 	// 5b. Baseline suppression
@@ -291,13 +289,24 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	}
 
 	// 7. Emitir en el formato pedido.
+	//
+	// Deliberately NOT `return`-ing from the branches: emitting a report is a
+	// presentation step, not the end of the pipeline. Returning here used to
+	// skip both the MobiAI export (step 7b) and the quality gate (step 8) for
+	// every non-console format, so `--json --fail-below N` always exited 0.
 	switch {
 	case f.asJSON:
-		return jsonrep.Write(report, target)
+		if err := jsonrep.Write(report, target); err != nil {
+			return err
+		}
 	case f.asSARIF:
-		return sarifrep.Write(report, target)
+		if err := sarifrep.Write(report, target); err != nil {
+			return err
+		}
 	case f.asMD:
-		return renderMarkdown(report, wd, target, f.outputPath, f.summary)
+		if err := renderMarkdown(report, wd, target, f.outputPath, f.summary); err != nil {
+			return err
+		}
 	case f.asHTML:
 		htmlTarget := target
 		outPath := f.outputPath
@@ -314,7 +323,6 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 			return fmt.Errorf("render html report: %w", err)
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "✓ Interactive HTML web report generated: %s\n", outPath)
-		return nil
 	default:
 		hasTty := isTerminal(cmd.OutOrStdout())
 		if f.summary {
@@ -357,10 +365,25 @@ func runScan(cmd *cobra.Command, f *scanFlags) error {
 	}
 
 	// 8. Quality gate.
-	if f.failBelow > 0 && score < f.failBelow {
+	//
+	// score.failBelow was parsed from kdoctor.config.yaml and then never
+	// read: a team could set a threshold and CI would happily pass anyway.
+	// An explicit --fail-below still wins, and a project without a config
+	// file gets no threshold at all, so nothing starts failing by surprise.
+	threshold := f.failBelow
+	// configExists is not enough: config.Load() fills failBelow with 80 even
+	// when the YAML says nothing about it, so a project that has a config
+	// file for excludes alone would silently acquire a quality gate.
+	if !cmd.Flags().Changed("fail-below") && configExists && err == nil && cfg.Score.FailBelowSet {
+		threshold = cfg.Score.FailBelow
+		if f.verbose && threshold > 0 {
+			fmt.Fprintf(cmd.ErrOrStderr(), "Using score.failBelow=%d from %s\n", threshold, configPath)
+		}
+	}
+	if threshold > 0 && score < threshold {
 		fmt.Fprintf(cmd.ErrOrStderr(),
 			"\n\u00d7 Health Score %d < fail-below %d\n",
-			score, f.failBelow)
+			score, threshold)
 		return ErrFailBelow
 	}
 	return nil
@@ -411,4 +434,19 @@ func isTerminal(w any) bool {
 		return (info.Mode() & os.ModeCharDevice) != 0
 	}
 	return false
+}
+
+// detektModeValue maps the --detekt-mode string onto the resolver enum.
+//
+// --prefer-standalone is kept as a no-op alias: standalone is the default now,
+// and the Makefile and the MobiAI integration workflow still pass it.
+func (f *scanFlags) detektModeValue() detektrunner.DetektMode {
+	switch strings.ToLower(strings.TrimSpace(f.detektMode)) {
+	case string(detektrunner.ModeGradleOnly):
+		return detektrunner.ModeGradleOnly
+	case string(detektrunner.ModeStandaloneOnly):
+		return detektrunner.ModeStandaloneOnly
+	default:
+		return detektrunner.ModeAuto
+	}
 }

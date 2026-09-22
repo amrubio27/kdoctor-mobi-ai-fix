@@ -45,13 +45,13 @@ var CatalogRules = []Rule{
 	{ID: "compose-derived-state-missing", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-lambda-recomposition", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-heavy-composable", Cluster: "compose-performance", Severity: "info", Status: "live", FixHint: "Modularize large Composable functions (>80 lines) into smaller reusable UI components."},
-	{ID: "compose-remember-missing", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:ReusedModifierInstance", Status: "live", FixHint: "Wrap mutable state in remember { mutableStateOf(...) }."},
-	{ID: "compose-state-hoisting", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ModifierHeightWithText", Status: "live", FixHint: "Move state up and receive callbacks down."},
-	{ID: "compose-modifier-frequent-changes", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ReusedModifierInstance", Status: "live", FixHint: "Hoist the Modifier to a parameter or remember it."},
+	{ID: "compose-remember-missing", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:RememberMissing", Status: "live", FixHint: "Wrap mutable state in remember { mutableStateOf(...) }."},
+	{ID: "compose-state-hoisting", Cluster: "compose-performance", Severity: "warning", Status: "planned", FixHint: "Move state up and receive callbacks down."},
+	{ID: "compose-modifier-frequent-changes", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ModifierReused", Status: "live", FixHint: "Hoist the Modifier to a parameter or remember it."},
 	{ID: "compose-graphics-layer", Cluster: "compose-performance", Severity: "warning", Status: "live", FixHint: "Use graphicsLayer { ... } or lambda-based Modifier parameters for frequently changing animation states to skip composition and layout phases."},
 	{ID: "compose-list-animated", Cluster: "compose-performance", Severity: "warning", Status: "planned"},
 	{ID: "compose-side-effect-in-compose", Cluster: "compose-performance", Severity: "error", Status: "planned"},
-	{ID: "compose-runtime-import-bleeding", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:ComposableNaming", Status: "live", FixHint: "Don't import compose.runtime.* outside @Composable functions."},
+	{ID: "compose-runtime-import-bleeding", Cluster: "compose-performance", Severity: "error", Status: "planned", FixHint: "Don't import compose.runtime.* outside @Composable functions."},
 	// 5.2 Coroutines & Async (8)
 	{ID: "coroutine-viewmodel-scope", Cluster: "coroutines", Severity: "error", Status: "planned"},
 	{ID: "coroutine-global-scope", Cluster: "coroutines", Severity: "error", DetektRule: "GlobalCoroutineUsage", Status: "live", FixHint: "Use injected CoroutineScope (e.g., viewModelScope)."},
@@ -63,7 +63,7 @@ var CatalogRules = []Rule{
 	{ID: "coroutine-sharedflow-replay", Cluster: "coroutines", Severity: "info", Status: "planned"},
 	// 5.3 Lifecycle (6)
 	{ID: "lifecycle-context-leak", Cluster: "lifecycle", Severity: "error", Status: "planned"},
-	{ID: "lifecycle-collect-as-state-missing", Cluster: "lifecycle", Severity: "error", DetektRule: "Compose:CollectAsStateWithLifecycle", Status: "live", FixHint: "Replace collectAsState() with collectAsStateWithLifecycle() or repeatOnLifecycle to prevent background state leaks."},
+	{ID: "lifecycle-collect-as-state-missing", Cluster: "lifecycle", Severity: "error", Status: "planned", FixHint: "Replace collectAsState() with collectAsStateWithLifecycle() or repeatOnLifecycle to prevent background state leaks."},
 	{ID: "lifecycle-collect-lifecycle-aware", Cluster: "lifecycle", Severity: "warning", Status: "planned"},
 	{ID: "lifecycle-ondestroy-listener", Cluster: "lifecycle", Severity: "warning", Status: "planned"},
 	{ID: "lifecycle-job-not-cancelled", Cluster: "lifecycle", Severity: "error", Status: "planned"},
@@ -75,14 +75,21 @@ var CatalogRules = []Rule{
 	{ID: "mem-handler-leak", Cluster: "memory", Severity: "warning", Status: "planned"},
 	{ID: "mem-coroutine-job-leak", Cluster: "memory", Severity: "error", Status: "planned"},
 	// 5.5 Architecture (10)
+	// InvalidPackageDeclaration checks that a file sits in the folder its package
+	// declares. It was mapped to arch-internal-in-public-api, which is about
+	// leaking internal types through a public API -- unrelated. Because that id
+	// is architecture/error, the mismatch counted as a non-dilutable critical and
+	// put a hard 15-point ceiling on the score of any project with three such
+	// files, typically test sources where the mismatch is harmless.
+	{ID: "arch-package-declaration-mismatch", Cluster: "architecture", Severity: "warning", DetektRule: "InvalidPackageDeclaration", Status: "live", FixHint: "Move the file to the folder its package declaration names, or fix the declaration to match where the file lives."},
 	{ID: "arch-god-class", Cluster: "architecture", Severity: "warning", DetektRule: "TooManyFunctions", Status: "live", FixHint: "Split class by responsibility."},
 	{ID: "arch-circular-dep", Cluster: "architecture", Severity: "error", Status: "planned"},
 	{ID: "arch-feature-module-public-api-bleed", Cluster: "architecture", Severity: "warning", Status: "planned"},
-	{ID: "arch-public-api-mutable-state", Cluster: "architecture", Severity: "error", DetektRule: "Compose:MutableStateAutoboxing", Status: "live", FixHint: "Expose StateFlow/SharedFlow as read-only (asStateFlow()/asSharedFlow()) and use atomic _uiState.update { ... } in ViewModels."},
+	{ID: "arch-public-api-mutable-state", Cluster: "architecture", Severity: "error", DetektRule: "Compose:MutableStateParam", Status: "live", FixHint: "Expose StateFlow/SharedFlow as read-only (asStateFlow()/asSharedFlow()) and use atomic _uiState.update { ... } in ViewModels."},
 	{ID: "arch-data-class-with-logic", Cluster: "architecture", Severity: "warning", Status: "planned"},
 	{ID: "arch-named-arg-required", Cluster: "architecture", Severity: "info", Status: "planned"},
 	{ID: "arch-utility-function-should-be-extension", Cluster: "architecture", Severity: "info", Status: "planned"},
-	{ID: "arch-internal-in-public-api", Cluster: "architecture", Severity: "error", DetektRule: "InvalidPackageDeclaration", Status: "live", FixHint: "Do not expose internal types in public API."},
+	{ID: "arch-internal-in-public-api", Cluster: "architecture", Severity: "error", Status: "planned", FixHint: "Do not expose internal types in public API."},
 	{ID: "arch-package-cycles-kmp", Cluster: "architecture", Severity: "error", Status: "planned"},
 	{ID: "arch-presentation-depends-on-data", Cluster: "architecture", Severity: "error", Status: "live", FixHint: "Presentation layer (@Composable/ViewModel) must not depend on Data layer (data.*, DataSource, DAO, Api, RepositoryImpl). Access data through UseCases or Repository interfaces."},
 	// 5.6 Accessibility (5)
@@ -151,8 +158,8 @@ var CatalogRules = []Rule{
 	{ID: "formatting-newline-at-eof", Cluster: "formatting", Severity: "info", DetektRule: "NewLineAtEndOfFile", Status: "live", FixHint: "Add a trailing newline at EOF."},
 	{ID: "formatting-max-line-length", Cluster: "formatting", Severity: "warning", DetektRule: "MaxLineLength", Status: "live", FixHint: "Break the line below 120 chars (default detekt threshold)."},
 	// Phase 2 Expansion (12)
-	{ID: "compose-derived-state-unremembered", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:DerivedStateWithoutRemember", Status: "live", FixHint: "Wrap derivedStateOf { ... } inside remember { ... } to prevent recalculation on every recomposition."},
-	{ID: "compose-unstable-collection-params", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:UnstableCollections", Status: "live", FixHint: "Replace standard Kotlin List/Set/Map with ImmutableList or annotate UI state with @Immutable."},
+	{ID: "compose-derived-state-unremembered", Cluster: "compose-performance", Severity: "error", Status: "planned", FixHint: "Wrap derivedStateOf { ... } inside remember { ... } to prevent recalculation on every recomposition."},
+	{ID: "compose-unstable-collection-params", Cluster: "compose-performance", Severity: "warning", Status: "planned", FixHint: "Replace standard Kotlin List/Set/Map with ImmutableList or annotate UI state with @Immutable."},
 	{ID: "compose-launcheffect-unit-key", Cluster: "compose-performance", Severity: "warning", Status: "planned", FixHint: "Avoid LaunchedEffect(Unit) for dynamic data loads; bind the key to state or viewmodel events."},
 	{ID: "compose-multiple-emitters-in-composable", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:MultipleEmitters", Status: "live", FixHint: "A Composable should emit only one main UI node tree to preserve layout hierarchy integrity."},
 	{ID: "coroutine-naked-try-catch-in-flow", Cluster: "coroutines", Severity: "warning", Status: "planned", FixHint: "Replace try-catch around Flow operators with the idiomatic .catch { ... } operator."},
@@ -173,14 +180,38 @@ var CatalogRules = []Rule{
 	{ID: "testability-direct-instantiation", Cluster: "testing", Severity: "error", Status: "live", FixHint: "Inject dependencies through constructors (Hilt/Koin/Manual DI) instead of instantiating concrete RepositoryImpl or Services directly."},
 	{ID: "arch-udf-sealed-events", Cluster: "architecture", Severity: "warning", Status: "live", FixHint: "Use a sealed interface (UiEvent/UiAction) to handle UI actions cleanly in a Unidirectional Data Flow."},
 	{ID: "arch-repository-impl-interface", Cluster: "architecture", Severity: "error", Status: "live", FixHint: "Ensure RepositoryImpl classes implement their corresponding domain Repository interface (DIP contract)."},
+	// --- detekt-compose plugin (io.nlopez.compose.rules) ---
+	//
+	// These ids come from the plugin own generated config, not from memory.
+	// The earlier Compose entries named rules that do not exist in the plugin
+	// (ReusedModifierInstance, ModifierHeightWithText, CollectAsStateWithLifecycle,
+	// DerivedStateWithoutRemember), so they could never fire even with it loaded.
+	{ID: "compose-lambda-in-restartable-effect", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:LambdaParameterInRestartableEffect", Status: "live", FixHint: "Wrap the lambda in rememberUpdatedState() before using it inside LaunchedEffect/DisposableEffect, or the effect will capture a stale reference."},
+	{ID: "compose-remember-content-missing", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:RememberContentMissing", Status: "live", FixHint: "Wrap movableContentOf in remember { ... } so the content is not recreated on every recomposition."},
+	{ID: "compose-mutable-params", Cluster: "compose-performance", Severity: "error", DetektRule: "Compose:MutableParams", Status: "live", FixHint: "Do not pass mutable objects (ArrayList, var-holding classes) to a Composable: Compose cannot detect their changes, so the UI silently goes stale."},
+	{ID: "compose-modifier-composed", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ModifierComposed", Status: "live", FixHint: "Modifier.composed is deprecated for performance reasons. Migrate the modifier to Modifier.Node."},
+	{ID: "compose-modifier-missing", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ModifierMissing", Status: "live", FixHint: "Public Composables that emit UI should take a Modifier parameter so callers can size and position them."},
+	{ID: "compose-modifier-without-default", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ModifierWithoutDefault", Status: "live", FixHint: "Give the Modifier parameter a default value of Modifier so callers may omit it."},
+	{ID: "compose-modifier-not-used-at-root", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ModifierNotUsedAtRoot", Status: "live", FixHint: "Apply the Modifier parameter to the root element of the Composable, otherwise caller layout instructions are ignored."},
+	{ID: "arch-composition-local-allowlist", Cluster: "architecture", Severity: "warning", DetektRule: "Compose:CompositionLocalAllowlist", Status: "live", FixHint: "CompositionLocals are implicit dependencies that make Composables hard to test. Pass the value explicitly, or add the local to the allowlist if it is intentional."},
+	{ID: "arch-compose-viewmodel-forwarding", Cluster: "architecture", Severity: "warning", DetektRule: "Compose:ViewModelForwarding", Status: "live", FixHint: "Do not forward a ViewModel down to child Composables. Pass the state it exposes and lambdas for the events instead."},
+	{ID: "arch-compose-viewmodel-injection", Cluster: "architecture", Severity: "warning", DetektRule: "Compose:ViewModelInjection", Status: "live", FixHint: "Obtain the ViewModel at the screen-level Composable and pass state down, rather than injecting it deep in the tree."},
+	{ID: "compose-content-emitter-returning-values", Cluster: "compose-performance", Severity: "warning", DetektRule: "Compose:ContentEmitterReturningValues", Status: "live", FixHint: "A Composable should either emit UI or return a value, not both."},
+	{ID: "compose-material2", Cluster: "compose-performance", Severity: "info", DetektRule: "Compose:Material2", Status: "live", FixHint: "This project targets Material 3. Replace the androidx.compose.material (M2) import with androidx.compose.material3."},
+	{ID: "dead-compose-preview-public", Cluster: "dead-code", Severity: "info", DetektRule: "Compose:PreviewPublic", Status: "live", FixHint: "@Preview Composables are only used by the IDE. Make them private so they are not part of the public API."},
+	{ID: "clean-compose-param-order", Cluster: "clean-code", Severity: "info", DetektRule: "Compose:ComposableParamOrder", Status: "live", FixHint: "Order Composable parameters as: required, then Modifier, then optional. It makes call sites readable and trailing lambdas work."},
+	{ID: "naming-compose-parameters", Cluster: "naming", Severity: "info", DetektRule: "Compose:ParameterNaming", Status: "live", FixHint: "Name lambda parameters that describe events as onSomething, and slot parameters as nouns."},
+	{ID: "compose-state-autoboxing", Cluster: "compose-performance", Severity: "info", DetektRule: "Compose:MutableStateAutoboxing", Status: "live", FixHint: "Use mutableIntStateOf/mutableLongStateOf/mutableFloatStateOf instead of mutableStateOf for primitives to avoid autoboxing on every write."},
 }
 
 func main() {
 	out := flag.String("out", "rules/metadata.json", "output path for the generated metadata.json")
 	flag.Parse()
 
-	if len(CatalogRules) != 100 {
-		fmt.Fprintf(os.Stderr, "ERROR: expected 100 rules, got %d\n", len(CatalogRules))
+	if problems := validateCatalog(CatalogRules); len(problems) > 0 {
+		for _, p := range problems {
+			fmt.Fprintf(os.Stderr, "ERROR: %s\n", p)
+		}
 		os.Exit(1)
 	}
 
@@ -198,4 +229,52 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Fprintf(os.Stderr, "Generated %d rules to %s\n", len(CatalogRules), *out)
+}
+
+// validateCatalog enforces the invariants the catalog has to hold, instead of
+// a hardcoded rule count that only ever told you the number changed.
+//
+// The duplicate-DetektRule check is the important one: rulemap.BuildIndex maps
+// DetektRule -> Rule, so two entries sharing one detekt rule silently meant the
+// second overwrote the first and one kdoctor rule became unreachable. That is
+// exactly what happened to Compose:UnstableCollections and
+// Compose:ReusedModifierInstance, and nothing caught it.
+func validateCatalog(rules []Rule) []string {
+	var problems []string
+	seenID := map[string]bool{}
+	seenDetekt := map[string]string{}
+
+	for _, r := range rules {
+		if r.ID == "" {
+			problems = append(problems, "rule with empty ID")
+			continue
+		}
+		if seenID[r.ID] {
+			problems = append(problems, fmt.Sprintf("duplicate rule ID %q", r.ID))
+		}
+		seenID[r.ID] = true
+
+		switch r.Status {
+		case "live", "planned":
+		default:
+			problems = append(problems, fmt.Sprintf("rule %q has invalid status %q", r.ID, r.Status))
+		}
+
+		switch r.Severity {
+		case "error", "warning", "info":
+		default:
+			problems = append(problems, fmt.Sprintf("rule %q has invalid severity %q", r.ID, r.Severity))
+		}
+
+		// Only live rules are indexed, so only their detekt keys can collide.
+		if r.DetektRule != "" && r.Status == "live" {
+			if prev, ok := seenDetekt[r.DetektRule]; ok {
+				problems = append(problems, fmt.Sprintf(
+					"detekt rule %q is claimed by both %q and %q; BuildIndex keeps only one, "+
+						"so the other can never fire", r.DetektRule, prev, r.ID))
+			}
+			seenDetekt[r.DetektRule] = r.ID
+		}
+	}
+	return problems
 }

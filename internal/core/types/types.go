@@ -104,8 +104,13 @@ const (
 	FixModeAuto        FixMode = "auto"        // aplica todo + valida con patch guard
 )
 
-// MobiaiAnnotation es la unidad volcada a .mobiai/graph/findings.jsonl
-// (Fase 4). Tiene el shape que espera el compat-layer de MobiAI Graph.
+// MobiaiAnnotation is the flattened wire shape POSTed to the MobiAI Graph
+// endpoint by internal/mobiai.Client.
+//
+// Note it is NOT what `scan --mobiai` writes to .mobiai/graph/findings.jsonl:
+// that file carries the full Finding (cluster, rule, fixHint included), which
+// is strictly more useful to an agent reading it locally. The two shapes
+// differ on purpose.
 type MobiaiAnnotation struct {
 	URI       string `json:"uri"`
 	StartLine int    `json:"startLine"`

@@ -1,9 +1,10 @@
 package grader
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 func TestEmptyIs100(t *testing.T) {
@@ -61,8 +62,20 @@ func TestInfoPenaltyCappedAt10(t *testing.T) {
 	}
 }
 
-func TestCriticalErrorsNotDilutedByKLOC(t *testing.T) {
-	// 5 critical security errors in a 100,000 line project across distinct security rules
+// TestCriticalErrorsResistDilutionByKLOC replaces an earlier test that
+// required critical findings to be fully immune to project size.
+//
+// The argument for immunity was sound -- a PII leak is a leak whatever the
+// project measures -- but the effect was that the score stopped answering
+// "how much debt is there" and started answering "do you have two critical
+// rules". On a real 16 KLOC project two capped rules pinned 30 points, 62% of
+// the total penalty, regardless of the other 400 findings.
+//
+// Critical findings are now divided by sqrt(KLOC) while everything else is
+// divided by KLOC, so they still dominate -- their relative weight grows like
+// sqrt(size) -- without pinning the score.
+func TestCriticalErrorsResistDilutionByKLOC(t *testing.T) {
+	// Five distinct critical security rules, 10 pts each before normalisation.
 	findings := []types.Finding{
 		{Severity: types.SeverityError, Cluster: "security", File: "A.kt", Rule: "sec-rule-1"},
 		{Severity: types.SeverityError, Cluster: "security", File: "B.kt", Rule: "sec-rule-2"},
@@ -70,11 +83,39 @@ func TestCriticalErrorsNotDilutedByKLOC(t *testing.T) {
 		{Severity: types.SeverityError, Cluster: "security", File: "D.kt", Rule: "sec-rule-4"},
 		{Severity: types.SeverityError, Cluster: "security", File: "E.kt", Rule: "sec-rule-5"},
 	}
-	score100K, _ := ScoreWithKLOC(findings, 100000)
-	// Each critical security error is 5.0 * 2.0 = 10 pts. Total = 50 pts deduction.
-	// Since critical errors are not diluted by KLOC, score should be 50.
-	if score100K != 50 {
-		t.Fatalf("critical errors should not be diluted by KLOC: expected 50, got %d", score100K)
+
+	// Regular findings at the same count and size, for comparison.
+	regular := make([]types.Finding, 0, 5)
+	for i, f := range findings {
+		regular = append(regular, types.Finding{
+			Severity: types.SeverityError, Cluster: "complexity",
+			File: f.File, Rule: fmt.Sprintf("cx-%d", i),
+		})
+	}
+
+	const lines = 100000
+	critScore, _ := ScoreWithKLOC(findings, lines)
+	regScore, _ := ScoreWithKLOC(regular, lines)
+	t.Logf("at %d lines: 5 critical -> %d, 5 regular -> %d", lines, critScore, regScore)
+
+	// The point of "critical": they must cost meaningfully more than ordinary
+	// findings of the same count and severity.
+	if critScore >= regScore {
+		t.Errorf("critical findings must outweigh regular ones: critical -> %d, regular -> %d",
+			critScore, regScore)
+	}
+
+	// And they must not vanish into a large codebase.
+	if critScore > 95 {
+		t.Errorf("five critical security rules should still cost real points, got %d", critScore)
+	}
+
+	// A smaller project with the same critical findings must score worse:
+	// same absolute debt, higher density.
+	smallScore, _ := ScoreWithKLOC(findings, 4000)
+	if smallScore >= critScore {
+		t.Errorf("the same critical findings should hurt a small project more: "+
+			"4 KLOC -> %d, 100 KLOC -> %d", smallScore, critScore)
 	}
 }
 
@@ -114,5 +155,97 @@ func TestDiminishingReturnsPerFileRule(t *testing.T) {
 	// Total penalty = 5.0 -> score = 95
 	if score != 95 {
 		t.Fatalf("expected 95 with diminishing returns, got %d", score)
+	}
+}
+
+// TestScoreIsInvariantToProjectSize pins the property the KLOC normalisation
+// exists for and never had: the same density of problems must score the same
+// regardless of how big the project is.
+//
+// The old sqrt(KLOC) divisor failed this badly. Findings grow roughly linearly
+// with size, so dividing by the square root left a residue growing like
+// sqrt(size): the same debt density scored 15 at 4 KLOC and 0 at 16, 60 and 200
+// KLOC. Every mid-sized project hit the floor, which is why a real project
+// reported 0/100 and the number stopped carrying information.
+//
+// TestNoCliffAt300Lines guarded against a discontinuity but said nothing about
+// the shape of the curve, so this went unnoticed.
+func TestScoreIsInvariantToProjectSize(t *testing.T) {
+	// One finding per 400 lines of code, held constant across sizes.
+	const linesPerFinding = 400
+
+	makeFindings := func(n int) []types.Finding {
+		out := make([]types.Finding, 0, n)
+		for i := 0; i < n; i++ {
+			out = append(out, types.Finding{
+				// Distinct files, so diminishing returns do not distort the ratio.
+				File:     fmt.Sprintf("src/File%d.kt", i),
+				Rule:     "complexity-long-method",
+				ID:       "complexity-long-method",
+				Cluster:  "complexity",
+				Severity: types.SeverityWarning,
+			})
+		}
+		return out
+	}
+
+	sizes := []int{4000, 16000, 60000, 200000}
+	scores := make([]int, 0, len(sizes))
+	for _, lines := range sizes {
+		score, _ := ScoreWithKLOC(makeFindings(lines/linesPerFinding), lines)
+		scores = append(scores, score)
+		t.Logf("%6d lines, %3d findings -> score %d", lines, lines/linesPerFinding, score)
+	}
+
+	for i := 1; i < len(scores); i++ {
+		// A couple of points of drift from integer rounding is fine; a collapse
+		// to the floor is not.
+		if diff := scores[i] - scores[0]; diff > 2 || diff < -2 {
+			t.Errorf("same debt density scores %d at %d lines but %d at %d lines; "+
+				"the normalisation is not size-invariant",
+				scores[0], sizes[0], scores[i], sizes[i])
+		}
+	}
+}
+
+// A project with twice the debt density must score worse than one with half,
+// at the same size. Invariance to size is worthless if the score also stops
+// responding to what it measures.
+func TestScoreStillRespondsToDensity(t *testing.T) {
+	const lines = 20000
+
+	build := func(n int) []types.Finding {
+		out := make([]types.Finding, 0, n)
+		for i := 0; i < n; i++ {
+			out = append(out, types.Finding{
+				File:     fmt.Sprintf("src/File%d.kt", i),
+				Rule:     "complexity-long-method",
+				ID:       "complexity-long-method",
+				Cluster:  "complexity",
+				Severity: types.SeverityWarning,
+			})
+		}
+		return out
+	}
+
+	clean, _ := ScoreWithKLOC(build(10), lines)
+	dirty, _ := ScoreWithKLOC(build(200), lines)
+	if clean <= dirty {
+		t.Fatalf("denser debt must score worse: 10 findings -> %d, 200 findings -> %d", clean, dirty)
+	}
+	t.Logf("at %d lines: 10 findings -> %d, 200 findings -> %d", lines, clean, dirty)
+}
+
+// Small projects must not be flattered by dividing by a fraction of a KLOC.
+func TestSmallProjectsAreNotInflatedByNormalisation(t *testing.T) {
+	findings := []types.Finding{
+		{File: "a.kt", Rule: "r", ID: "r", Cluster: "complexity", Severity: types.SeverityWarning},
+		{File: "b.kt", Rule: "r", ID: "r", Cluster: "complexity", Severity: types.SeverityWarning},
+	}
+	tiny, _ := ScoreWithKLOC(findings, 120)
+	small, _ := ScoreWithKLOC(findings, 900)
+	if tiny != small {
+		t.Errorf("below the 1 KLOC floor the divisor must not change the score: 120 lines -> %d, 900 lines -> %d",
+			tiny, small)
 	}
 }

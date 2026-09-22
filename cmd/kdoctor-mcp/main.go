@@ -11,7 +11,7 @@
 //   - kdoctor_rules       : list the kdoctor rule catalog
 //   - kdoctor_init        : bootstrap kdoctor in a project directory
 //   - kdoctor_doctor      : diagnose the kdoctor environment
-//   - kdoctor_fix_suggest : generate AI fix suggestions without applying them
+//   - kdoctor_fix_suggest : return a remediation plan for the caller to apply
 //
 // The server expects a `kdoctor` binary available in PATH or pointed to by
 // the KDOCTOR_BIN environment variable.
@@ -19,6 +19,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -111,7 +112,7 @@ var tools = []tool{
 	},
 	{
 		Name:        "kdoctor_fix_suggest",
-		Description: "Generate AI-driven fix suggestions for a project without applying them.",
+		Description: "Return a remediation plan: every finding with its source window, rule, fix hint and the exact line range to replace. kdoctor does not call a model and never edits files; you apply the changes.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -309,7 +310,9 @@ func runFixSuggest(bin string, args json.RawMessage) rpcResponse {
 		return rpcResponse{JSONRPC: "2.0", Error: newRPCError(-32602, "invalid arguments: %v", err)}
 	}
 
-	argv := []string{"fix", "--ai", "--mode", "suggest"}
+	// --json makes stdout a parseable remediation plan; progress goes to
+	// stderr, so what reaches the agent is data rather than a transcript.
+	argv := []string{"fix", "--json"}
 	if p.ProjectDir != "" {
 		argv = append(argv, "--project-dir", p.ProjectDir)
 	}
@@ -339,14 +342,24 @@ func execTool(bin string, argv []string, workDir string) rpcResponse {
 		cmd.Dir = workDir
 	}
 
-	outBytes, err := cmd.CombinedOutput()
-	out := string(outBytes)
+	// Keep the streams apart. kdoctor puts its JSON report on stdout and
+	// everything else on stderr: progress, warnings, and the one-off detekt
+	// download on first use. CombinedOutput merged them, so the agent on the
+	// other end of this server could receive a report prefixed with
+	// "Downloading detekt..." and fail to parse it.
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	out := stdout.String()
+	diagnostics := stderr.String()
 	if err != nil {
 		return rpcResponse{
 			JSONRPC: "2.0",
 			Result: map[string]any{
 				"content": []map[string]string{
-					{"type": "text", "text": out},
+					// On failure the explanation is on stderr, so pass both along.
+					{"type": "text", "text": out + diagnostics},
 				},
 				"isError": true,
 				"error":   fmt.Sprintf("%v", err),

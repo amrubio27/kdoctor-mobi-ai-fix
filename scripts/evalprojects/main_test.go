@@ -8,12 +8,13 @@
 //     parses the report, asserts schemaVersion, score band, and the
 //     mustIncludeFinding list.
 //
-// Tests SKIP (not FAIL) when prerequisites are missing (no detekt-cli,
-// no kdoctor binary buildable). This keeps `go test ./...` clean for
-// CI environments that haven't installed detekt yet.
+// These are the only tests that exercise a real scan end to end. They used
+// to skip when detekt was absent, which is why CI could stay green while the
+// scan path was broken. kdoctor provisions detekt itself now, so they run.
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -88,32 +89,15 @@ func repoRoot() (string, bool) {
 	return "", false
 }
 
-// detectDetektBinary returns the absolute path to a detekt-cli launcher.
-// Order: KDOCTOR_DETEKT_BIN env var → Windows-specific D:\tools\detekt.cmd
-// → POSIX /d/tools/detekt.cmd → /opt/detekt/bin/detekt → /usr/local/bin/detekt
-// → PATH lookup. Returns "" if not found (caller SKIPs the test).
+// detectDetektBinary honours an explicit KDOCTOR_DETEKT_BIN and nothing else.
+// It used to probe hardcoded paths from a contributor machine
+// (D:\tools\detekt.cmd), which meant it always returned "" for everyone
+// else and silently skipped the test.
 func detectDetektBinary() string {
 	if v := os.Getenv("KDOCTOR_DETEKT_BIN"); v != "" {
 		if _, err := os.Stat(v); err == nil {
 			return v
 		}
-	}
-	candidates := []string{}
-	if runtime.GOOS == "windows" {
-		candidates = append(candidates, `D:\tools\detekt.cmd`)
-	} else {
-		candidates = append(candidates, "/d/tools/detekt.cmd")
-	}
-	for _, c := range candidates {
-		if c == "" {
-			continue
-		}
-		if _, err := os.Stat(c); err == nil {
-			return c
-		}
-	}
-	if p, err := exec.LookPath("detekt"); err == nil {
-		return p
 	}
 	return ""
 }
@@ -156,10 +140,11 @@ func runFixture(t *testing.T, fixturePath string, useRelative bool) {
 	if kdoctorTestBin == "" {
 		t.Skip("kdoctor binary not available")
 	}
+	// kdoctor provisions detekt itself now, so these no longer skip when the
+	// machine has no detekt installed. That skip was why CI stayed green
+	// while the scan path was broken: the only tests that exercised it never
+	// ran. An explicit KDOCTOR_DETEKT_BIN still wins, for offline runners.
 	detektBin := detectDetektBinary()
-	if detektBin == "" {
-		t.Skip("detekt-cli not found; install or set KDOCTOR_DETEKT_BIN")
-	}
 	root, ok := repoRoot()
 	if !ok {
 		t.Skip("could not locate repo root")
@@ -190,16 +175,49 @@ func runFixture(t *testing.T, fixturePath string, useRelative bool) {
 		"scan", "--json",
 		"--type=kmp",
 		"--prefer-standalone",
-		"--detekt-bin=" + detektBin,
 		"--project-dir=" + projectPath,
+	}
+	if detektBin != "" {
+		args = append(args, "--detekt-bin="+detektBin)
 	}
 	cmd := exec.CommandContext(ctx, kdoctorTestBin, args...)
 	cmd.Dir = root
-	out, err := cmd.CombinedOutput()
+	// stdout and stderr must stay apart. kdoctor writes the JSON report to
+	// stdout and everything else -- progress, warnings, the first-run detekt
+	// download -- to stderr. CombinedOutput merged them, so on a runner with a
+	// cold cache the report came back prefixed with "Downloading detekt..." and
+	// failed to parse. It passed locally only because the jar was already
+	// cached, which is the worst kind of green.
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	out := stdout.Bytes()
+	diagnostics := stderr.String()
 	if err != nil {
-		t.Fatalf("kdoctor scan exit=%v\n--- output ---\n%s\n--- end ---",
-			err, truncateForLog(string(out), 4000))
+		t.Fatalf("kdoctor scan exit=%v\n--- stdout ---\n%s\n--- stderr ---\n%s\n--- end ---",
+			err, truncateForLog(string(out), 3000), truncateForLog(diagnostics, 2000))
 	}
+	// A degraded scan evaluates only the native rules, so the fixture drops to
+	// ~4 findings and its score climbs out of band. Failing on the band alone
+	// would report "score 80 not in [45,65]" and say nothing about why.
+	//
+	// Whether that is a failure depends on who is running. CI sets
+	// KDOCTOR_REQUIRE_DETEKT because it provisions a JVM and has a network, so a
+	// partial scan there is a real regression. A developer without a supported JDK
+	// gets an explained skip instead. That is not the silent skip this suite used
+	// to do on a hardcoded D:/tools path: the scan was genuinely attempted and the
+	// reason is printed.
+	if strings.Contains(diagnostics, "Partial scan") {
+		msg := fmt.Sprintf("detekt did not run, so %s measured only the native rules "+
+			"and its score band does not apply.\nkdoctor said:\n%s",
+			filepath.Base(fixturePath), truncateForLog(diagnostics, 1500))
+		if os.Getenv("KDOCTOR_REQUIRE_DETEKT") != "" {
+			t.Fatal(msg)
+		}
+		t.Skip(msg)
+	}
+
 	var r report
 	if err := json.Unmarshal(out, &r); err != nil {
 		t.Fatalf("parse kdoctor JSON: %v\n--- output (first 4000B) ---\n%s",

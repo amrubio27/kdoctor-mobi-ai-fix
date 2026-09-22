@@ -1,6 +1,7 @@
 package pathutil
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -135,5 +136,48 @@ func TestSuffixMatch_BoundaryRegression(t *testing.T) {
 	}
 	if SuffixMatch("/proj/Foo.kt", "/proj/Baz.kt") {
 		t.Error("SuffixMatch must reject same-root different name; got true for /proj/Foo.kt suffix /proj/Baz.kt")
+	}
+}
+
+// TestRelativeToProject pins the report path contract. Findings arrive in two
+// shapes -- native detectors emit project-relative paths, detekt emits absolute
+// file:// URIs -- and reports used to carry that mix through unchanged. The
+// visible damage was a SARIF whose URIs pointed at the scanning machine and so
+// matched nothing in the GitHub repository.
+func TestRelativeToProject(t *testing.T) {
+	const root = "/proj"
+	cases := []struct {
+		name  string
+		input string
+		root  string
+		want  string
+	}{
+		{"already relative", "src/Foo.kt", root, "src/Foo.kt"},
+		{"absolute inside project", "/proj/src/Foo.kt", root, "src/Foo.kt"},
+		{"file uri", "file:///proj/src/Foo.kt", root, "src/Foo.kt"},
+		{"percent encoded space", "file:///proj/my%20src/Foo.kt", root, "my src/Foo.kt"},
+		{"backslashes", "/proj/src/sub/Foo.kt", root, "src/sub/Foo.kt"},
+		{"dot segments", "/proj/src/../src/Foo.kt", root, "src/Foo.kt"},
+		{"empty stays empty", "", root, ""},
+		{"no root keeps input", "src/Foo.kt", "", "src/Foo.kt"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := RelativeToProject(c.input, c.root); got != c.want {
+				t.Errorf("RelativeToProject(%q, %q) = %q, want %q", c.input, c.root, got, c.want)
+			}
+		})
+	}
+}
+
+// A path genuinely outside the project must not be rewritten into a misleading
+// ../../ relative path: it is not relative to the project at all.
+func TestRelativeToProjectKeepsOutsidePathsAbsolute(t *testing.T) {
+	got := RelativeToProject("/elsewhere/Foo.kt", "/proj")
+	if strings.HasPrefix(got, "..") {
+		t.Fatalf("outside path was rewritten as relative: %q", got)
+	}
+	if !strings.Contains(got, "elsewhere") {
+		t.Fatalf("outside path lost its identity: %q", got)
 	}
 }

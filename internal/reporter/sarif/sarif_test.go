@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 func TestWriteProducesValidSARIF(t *testing.T) {
@@ -78,6 +78,54 @@ func TestSeverityToSARIFLevel(t *testing.T) {
 	for sev, want := range cases {
 		if got := levelFromSeverity(sev); got != want {
 			t.Errorf("levelFromSeverity(%q) = %q, want %q", sev, got, want)
+		}
+	}
+}
+
+// TestEveryResultRuleIDIsDeclared pins the SARIF 2.1.0 invariant that every
+// results[].ruleId must resolve to an entry in tool.driver.rules[]. The writer
+// used to key declarations on f.Rule (detekt's name) while emitting f.ID
+// (kdoctor's id) in results, so GitHub Code Scanning silently dropped every
+// detekt-sourced finding. It also checks that findings are never discarded just
+// because one identifier field is empty.
+func TestEveryResultRuleIDIsDeclared(t *testing.T) {
+	r := types.Report{
+		Findings: []types.Finding{
+			// detekt-sourced: ID and Rule differ — the regression case.
+			{ID: "complexity-too-many-functions", Rule: "TooManyFunctions",
+				Severity: types.SeverityWarning, File: "a.kt", Line: 1},
+			// native: ID == Rule.
+			{ID: "sec-log-pii", Rule: "sec-log-pii",
+				Severity: types.SeverityError, File: "b.kt", Line: 2},
+			// no Rule at all: must still be emitted, not dropped.
+			{ID: "arch-orphan", Severity: types.SeverityInfo, File: "c.kt", Line: 3},
+		},
+	}
+	var buf strings.Builder
+	if err := Write(r, &buf); err != nil {
+		t.Fatal(err)
+	}
+	var parsed log
+	if err := json.Unmarshal([]byte(buf.String()), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if len(parsed.Runs) != 1 {
+		t.Fatalf("want 1 run, got %d", len(parsed.Runs))
+	}
+	run := parsed.Runs[0]
+
+	if len(run.Results) != len(r.Findings) {
+		t.Fatalf("findings were dropped: want %d results, got %d", len(r.Findings), len(run.Results))
+	}
+
+	declared := map[string]bool{}
+	for _, rd := range run.Tool.Driver.Rules {
+		declared[rd.ID] = true
+	}
+	for _, res := range run.Results {
+		if !declared[res.RuleID] {
+			t.Errorf("results[].ruleId %q is not declared in tool.driver.rules[] (declared: %v)",
+				res.RuleID, run.Tool.Driver.Rules)
 		}
 	}
 }

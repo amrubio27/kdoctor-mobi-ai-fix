@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 // Index es un índice in-memory construido desde []types.Rule.
@@ -45,10 +45,7 @@ func BuildIndex(rules []types.Rule) *Index {
 func (idx *Index) Map(findings []types.Finding) []types.Finding {
 	out := make([]types.Finding, 0, len(findings))
 	for _, f := range findings {
-		queryID := f.Rule
-		if lastDot := strings.LastIndex(queryID, "."); lastDot != -1 {
-			queryID = queryID[lastDot+1:]
-		}
+		queryID := normalizeDetektRuleID(f.Rule)
 
 		var matched bool
 		var r types.Rule
@@ -156,3 +153,29 @@ func ApplyOverrides(findings []types.Finding, excludes []string, overrides map[s
 
 // Len devuelve el número de reglas indexadas (para diagnóstico).
 func (idx *Index) Len() int { return len(idx.byID) }
+
+// normalizeDetektRuleID turns a SARIF ruleId emitted by detekt into the key
+// used in the kdoctar catalog DetektRule field.
+//
+// Core rules arrive as "detekt.complexity.LongMethod", so the last segment is
+// the rule name. Rules contributed by a plugin arrive as
+// "detekt.Compose.ModifierMissing", where the ruleset matters: the catalog
+// spells those "Compose:ModifierMissing". Stripping to the last segment alone
+// silently unmapped every Compose rule.
+func normalizeDetektRuleID(rule string) string {
+	parts := strings.Split(rule, ".")
+	if len(parts) >= 3 && parts[0] == "detekt" {
+		ruleset := parts[len(parts)-2]
+		name := parts[len(parts)-1]
+		// A ruleset in PascalCase is a plugin namespace (Compose); detekt own
+		// rulesets are lower-case or kebab-case (style, potential-bugs).
+		if ruleset != "" && ruleset[0] >= 'A' && ruleset[0] <= 'Z' {
+			return ruleset + ":" + name
+		}
+		return name
+	}
+	if lastDot := strings.LastIndex(rule, "."); lastDot != -1 {
+		return rule[lastDot+1:]
+	}
+	return rule
+}

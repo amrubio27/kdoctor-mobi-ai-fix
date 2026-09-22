@@ -9,8 +9,9 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 const (
@@ -44,7 +45,9 @@ func renderReport(r types.Report, w io.Writer, hasTty bool, summaryOnly bool) {
 		c(ansiGreen, "Health Score:"),
 		pickColor(r.HealthScore, hasTty),
 		r.HealthScore,
-		ansiReset,
+		// pickColor returns "" without a TTY, so the reset code must be
+		// suppressed too - otherwise a bare ESC[0m leaked into piped output.
+		reset(hasTty),
 	)
 	fmt.Fprintf(w, "%d errors  ·  %d warnings  ·  %d info  ·  %d total\n",
 		r.Summary.Errors, r.Summary.Warnings, r.Summary.Info, r.Summary.Total)
@@ -73,10 +76,15 @@ func renderReport(r types.Report, w io.Writer, hasTty bool, summaryOnly bool) {
 		fmt.Fprintf(w, "\n[%s] %d issues\n", cl, len(byCluster[cl]))
 		for _, f := range byCluster[cl] {
 			sev := pickSev(f.Severity, hasTty)
-			fmt.Fprintf(w, "  %s %s:%d:%d  %s\n",
-				sev, f.File, f.Line, f.Column, f.Message)
+			// Always show the rule id: it is what the user needs to silence or
+			// re-severity the rule in kdoctor.config.yaml. It only appeared before
+			// by accident, because native detectors repeat it inside Message -
+			// detekt findings showed no id at all.
+			fmt.Fprintf(w, "  %s %s  %s:%d:%d\n",
+				sev, f.ID, f.File, f.Line, f.Column)
+			fmt.Fprintf(w, "       %s\n", stripIDPrefix(f.Message, f.ID))
 			if f.FixHint != "" {
-				fmt.Fprintf(w, "    \u2192 %s\n", f.FixHint)
+				fmt.Fprintf(w, "       \u2192 %s\n", f.FixHint)
 			}
 		}
 	}
@@ -138,4 +146,23 @@ func pickSev(s types.Severity, hasTty bool) string {
 		return ansiCyan + "info" + ansiReset
 	}
 	return string(s)
+}
+
+// reset returns the ANSI reset sequence only when colours were actually
+// emitted.
+func reset(hasTty bool) string {
+	if !hasTty {
+		return ""
+	}
+	return ansiReset
+}
+
+// stripIDPrefix drops a leading "<id>: " from a message so the id is not
+// printed twice now that it has its own column. Native detectors build their
+// messages that way; detekt messages do not.
+func stripIDPrefix(message, id string) string {
+	if id == "" {
+		return message
+	}
+	return strings.TrimPrefix(message, id+": ")
 }

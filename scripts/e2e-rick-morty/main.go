@@ -1,5 +1,5 @@
 // e2e-rick-morty runs kdoctor against a real Android/KMP project
-// (default: D:/Programacion/RickMortyApp) and validates the output.
+// (set RICK_MORTY_APP) and validates the output.
 //
 // Usage:
 //
@@ -7,8 +7,8 @@
 //
 // Environment variables:
 //
-//	RICK_MORTY_APP      path to the real project (default D:/Programacion/RickMortyApp)
-//	KDOCTOR_DETEKT_BIN  explicit detekt binary path (default D:/tools/detekt.cmd)
+//	RICK_MORTY_APP      path to the real project (required)
+//	KDOCTOR_DETEKT_BIN  explicit detekt binary path (optional; kdoctor resolves one otherwise)
 package main
 
 import (
@@ -22,7 +22,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 type report struct {
@@ -41,14 +41,15 @@ func main() {
 	flag.BoolVar(&smoke, "smoke", false, "only verify that the scan runs and returns a valid report")
 	flag.Parse()
 
+	// No default path: this used to fall back to one contributor machine, so
+	// anyone else got "Project not found at D:/Programacion/RickMortyApp".
 	project := os.Getenv("RICK_MORTY_APP")
 	if project == "" {
-		project = "D:/Programacion/RickMortyApp"
+		fmt.Fprintln(os.Stderr, "Set RICK_MORTY_APP to the project to scan, e.g. RICK_MORTY_APP=/path/to/app go run ./scripts/e2e-rick-morty")
+		os.Exit(2)
 	}
+	// Optional: kdoctor resolves detekt on its own when this is empty.
 	detektBin := os.Getenv("KDOCTOR_DETEKT_BIN")
-	if detektBin == "" {
-		detektBin = "D:/tools/detekt.cmd"
-	}
 
 	if _, err := os.Stat(project); err != nil {
 		fmt.Fprintf(os.Stderr, "Project not found at %s (set RICK_MORTY_APP)\n", project)

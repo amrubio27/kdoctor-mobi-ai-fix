@@ -13,7 +13,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/adkd/adkd/internal/core/types"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
 const systemPrompt = `You are kdoctor AI Fixer. Your goal is to fix the provided code according to the issue described.
