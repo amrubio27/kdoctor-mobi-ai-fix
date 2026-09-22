@@ -5,13 +5,18 @@ All notable changes to kdoctor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> **Nota sobre el versionado.** Los tags de este repo no están en orden semver:
-> `v1.0.0` (2026-07-21) es **anterior** a `v0.1.0`…`v0.6.0`, y falta `v0.3.0`.
-> Los tags publicados no se borran, porque alguien puede haberlos fijado. La
-> siguiente release debería ser **`v1.1.0`**: así el tag más alto en semver
-> vuelve a ser también el más reciente en el tiempo, sin romper a nadie.
+> **Nota sobre el versionado.** Los tags de este repo quedaron desordenados:
+> `v1.0.0` (2026-07-21) es **anterior** a la serie `v0.1.0`…`v0.6.0`, y falta
+> `v0.3.0`. Los tags publicados no se borran, porque alguien puede haberlos
+> fijado.
+>
+> Esta release salta a **`v1.1.0`** precisamente para dejar el lío atrás: al
+> superar a `v1.0.0`, el tag más alto en semver vuelve a ser también el más
+> reciente en el tiempo. Los dos criterios —ordenar por versión y ordenar por
+> fecha, que es lo que hace el *latest* de GitHub y por tanto `install.sh` e
+> `install.ps1`— coinciden otra vez. A partir de aquí, semver normal.
 
-## [Unreleased]
+## [v1.1.0] — 2026-09-22
 
 ### Fixed — funcionalidad anunciada que no funcionaba
 - **`--fail-below` no tenía efecto salvo en consola.** El `switch` de formato de

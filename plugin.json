@@ -2,7 +2,7 @@
   "name": "kdoctor",
   "displayName": "kdoctor (Android Doctor)",
   "description": "Static analysis + AI auto-fix Health Score for Android/KMP/CMP.",
-  "version": "0.7.0",
+  "version": "1.1.0",
   "author": "kdoctor contributors",
   "license": "MIT",
   "homepage": "https://github.com/amrubio27/kdoctor-mobi-ai-fix",
