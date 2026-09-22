@@ -1,176 +1,274 @@
-# 🩺 kdoctor — Code Quality & Health Auditor for Android / KMP / Compose
+# kdoctor
 
-> **Addon PoC para `mobiAi`**: Herramienta de auditoría estática de código de alto rendimiento que evalúa la salud de proyectos Kotlin/KMP/CMP (0-100 Health Score), detecta antipatrones de arquitectura, seguridad y Compose, y permite autocorregir hallazgos mediante IA.
+**Auditoría de salud de código para Android, Kotlin Multiplatform y Compose Multiplatform.**
 
----
+Analiza tu proyecto, te da una nota de 0 a 100 y te dice qué arreglar, con fichero, línea y una pista concreta. Pensado tanto para que lo leas tú como para que lo consuma tu agente de IA.
 
-## 🚀 Características Clave
+Inspirado en react-doctor. Diseñado como complemento de [MobiAI](https://github.com/ArisGuimera/MobiAI-Core).
 
-- 📊 **Health Score Continuo (0-100) y Calibrado por KLOC**: Algoritmo continuo sin saltos discontinuos, ponderado por categorías de cluster (Seguridad x2.0, Arquitectura x1.5, Corrutinas x1.25, UI x0.75). Mantiene los fallos críticos protegidos de la dilución por KLOC y aplica rendimientos decrecientes a avisos repetidos con tope de penalización a hallazgos `Info`.
-- ⚡ **Auto-configuración en Memoria**: Exención automática para funciones `@Composable` en proyectos recién clonados sin requerir configuración manual previa de `detekt.yml`.
-- 🔍 **116 Reglas Catalogadas, 64 activas** (20 nativas en Go + 44 vía detekt). Ejecuta `kdoctor doctor` para ver cuántas puede evaluar tu entorno concreto:
-  - Reglas de Clean Architecture y SOLID (Separación Data/Domain/Presentation, contratos ViewModel/UseCase, prevención de fuga de lógica, mappers `DataModel` → `DomainModel` → `UiModel`, patrones MVI y UDF).
-  - Reglas avanzadas de Jetpack Compose (prevención de recomposiciones, claves en listas `key`, optimización `graphicsLayer`, modularización de Composables grandes).
-  - Reglas de Corrutinas & Flow (manejadores de excepciones, inyección de `Dispatchers`, operadores de Flow).
-  - Testeabilidad e Inyección de Dependencias (detección de instanciaciones directas).
-- 📦 **Instalación en 1 Línea (Zero Build)**: Scripts de instalación directa para Windows, macOS y Linux sin necesidad de compilar.
-- 🔄 **Reglas Modulares Offline-First**: Catálogo embebido en el ejecutable, con caché local persistente (`~/.kdoctor/rules/metadata.json`) y actualización remota con un clic (`kdoctor rules update`).
-- 🌐 **Reporte Web HTML Interactivo (`--html`)**: Genera un informe autocontenido y offline (`kdoctor-report.html`) en modo oscuro, con el Health Score, filtros combinables por severidad y por cluster, y sugerencias de remediación (`FixHint`).
-- 📑 **Reportes Multi-formato**: Consola con color, Markdown (`--md`), HTML interactivo (`--html`), JSON Schema v3 (`--json`) y SARIF 2.1.0 (`--sarif`).
-- 🛠️ **Integración MCP Natively Built-in (`kdoctor-mcp`)**: Servidor JSON-RPC 2.0 sobre `stdio` para consumo directo por Cursor, Claude Code y agencias MobiAI.
-- 🤖 **Plan de Remediación para Agentes (`kdoctor fix`)**: Emite cada hallazgo con su ventana de código (±10 líneas), el `fixHint` de la regla y el rango exacto de líneas a reemplazar, en JSON o Markdown. kdoctor **no llama a ningún modelo y nunca edita tus ficheros**: el agente que lo invoca ya tiene uno. `kdoctor fix --validate` pasa **Patchguard** (lexer Kotlin) sobre lo que el agente escribió.
+```
+Health Score: 85/100
+9 errors  ·  18 warnings  ·  96 info  ·  123 total
+
+Top clusters:
+  1. [magic-numbers] 77 issues
+  2. [compose-performance] 18 issues
+  3. [architecture] 13 issues
+```
 
 ---
 
-## 📋 Requisitos
+## Por qué existe
 
-Solo **un JDK 11-21**. kdoctor descarga detekt y el plugin de reglas Compose
-automáticamente en el primer escaneo (a `~/.kdoctor/tools/`, verificando el
-checksum) y los reutiliza después. Si no encuentra un JDK compatible, el scan
-sigue funcionando con las 20 reglas nativas y te dice qué falta.
+Las herramientas de análisis estático te dan una lista. kdoctor te da **una lista priorizada y un número al que seguir la pista en el tiempo**.
 
-`kdoctor doctor` te dice exactamente en qué estado está tu entorno.
+La diferencia práctica está en tres decisiones:
 
-## 💻 Instalación Rápida (One-Liner Installers)
+- **El score mide densidad de deuda, no volumen.** Está normalizado por KLOC, así que un proyecto grande no puntúa peor por ser grande. Dos proyectos distintos son comparables, y el mismo proyecto lo es consigo mismo según crece.
+- **Las reglas pesan según lo que cuestan después.** Seguridad ×2, arquitectura ×1,5, formato ×0,75. Cien *magic numbers* no tapan una fuga de credenciales.
+- **El código de test se juzga con otra vara.** Un test importa legítimamente de la capa de datos e instancia colaboradores a mano. Las reglas de arquitectura y diseño no se aplican ahí; las de seguridad sí, porque una credencial filtrada lo está en cualquier fichero.
 
-Instala `kdoctor` directamente en tu sistema sin necesidad de instalar Go ni compilar:
+## Instalación
 
-### 🔹 Windows (PowerShell)
+**Windows**
 ```powershell
 irm https://raw.githubusercontent.com/amrubio27/kdoctor-mobi-ai-fix/main/install.ps1 | iex
 ```
 
-### 🔹 macOS / Linux (Bash / Zsh)
+**macOS / Linux**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/amrubio27/kdoctor-mobi-ai-fix/main/install.sh | sh
 ```
 
----
-
-### Opción Alternativa: Compilación desde código fuente
+**Desde el código** (necesita Go 1.23+)
 ```bash
-git clone https://github.com/amrubio27/kdoctor-mobi-ai-fix.git
-cd kdoctor-mobi-ai-fix
-go build -o kdoctor.exe ./cmd/kdoctor
+go install github.com/amrubio27/kdoctor-mobi-ai-fix/cmd/kdoctor@latest
 ```
 
----
+Hay binarios para Windows, macOS (Intel y Apple Silicon) y Linux (x86-64 y ARM64) en [Releases](https://github.com/amrubio27/kdoctor-mobi-ai-fix/releases), con `sha256sums.txt`.
 
-## 🏁 Guía de Uso Rápido (Quickstart)
+### Requisitos
 
-### 1. Inicializar Proyecto
-Genera la configuración y exenciones adaptadas al stack (`android`, `kmp`, `cmp`, `compose`):
-```bash
-kdoctor init --type=cmp
+Un **JDK 11-21**. Nada más.
+
+kdoctor descarga detekt y el plugin de reglas de Compose la primera vez que los necesita, verifica su SHA-256 y los cachea en `~/.kdoctor/tools/`. No tienes que instalar detekt, ni configurar Gradle, ni tocar ningún fichero.
+
+Si no encuentra un JDK compatible el escaneo **sigue funcionando** con las 20 reglas nativas, y te dice exactamente qué falta. `kdoctor doctor` te lo cuenta antes de empezar:
+
+```
+✓ Java    : 17  (JAVA_HOME)
+✓ detekt  : cached
+✓ Gradle  : gradlew encontrado
+
+  Rules     : 117 catalogued, 64 live (20 native + 44 via detekt)
+  Next scan : ✓ 64/64 rules
 ```
 
-### 2. Escanear un Proyecto (Consola)
-Si estás dentro del directorio del proyecto, simplemente ejecuta:
+## Uso
+
 ```bash
+cd tu-proyecto
 kdoctor scan
 ```
-*(Opcionalmente puedes pasar la ruta como argumento: `kdoctor scan /ruta/a/tu/proyecto` o usar `--project-dir=/ruta`).*
 
-### 3. Generar Reporte Web HTML Interactivo
+Eso es todo. Sin `init`, sin configuración previa.
+
+### Comandos
+
+| comando | qué hace |
+|---|---|
+| `kdoctor scan` | Analiza y puntúa |
+| `kdoctor doctor` | Qué podrá evaluar el próximo escaneo, y por qué |
+| `kdoctor fix` | Plan de remediación para que lo aplique tu agente |
+| `kdoctor init` | Genera `kdoctor.config.yaml` y `detekt.yml` a medida del stack |
+| `kdoctor rules` | Inspecciona o actualiza el catálogo |
+
+### Formatos de salida
+
 ```bash
-kdoctor scan --html
-# Genera y abre kdoctor-report.html en el directorio actual
+kdoctor scan --summary   # solo el score y los clusters principales
+kdoctor scan --json      # estructurado, para agentes y scripts
+kdoctor scan --html      # informe autocontenido para compartir
+kdoctor scan --md        # markdown legible
+kdoctor scan --sarif     # GitHub Code Scanning
 ```
 
-### 4. Generar Reporte Markdown o JSON
-```bash
-# Reporte completo en Markdown
-kdoctor scan --md
+El informe HTML es un único fichero que funciona sin conexión, con filtros combinables por severidad y por cluster.
 
-# Reporte JSON estructurado para agentes de IA
-kdoctor scan --json
+### Sólo lo que has cambiado
+
+```bash
+kdoctor scan --diff main
 ```
 
-### 5. Inspeccionar o Actualizar Catálogo de Reglas
-```bash
-# Listar el catálogo completo y su fuente de carga
-kdoctor rules list
+Filtra los hallazgos a las líneas que tocaste respecto a esa rama. Es lo más útil al revisar: centra la atención en lo que acabas de escribir, no en la deuda histórica.
 
-# Sincronizar las últimas reglas lanzadas en GitHub
-kdoctor rules update
+### Integración continua
+
+```bash
+kdoctor scan --json --fail-below 80
 ```
 
-### 6. Plan de Remediación
-```bash
-# Plan legible en fixes.md (dentro del proyecto)
-kdoctor fix
+Sale con código distinto de cero si el score baja del umbral. También puedes fijarlo en `kdoctor.config.yaml`; el flag tiene prioridad.
 
-# Plan en JSON, para que lo consuma tu agente o el servidor MCP
+```yaml
+- name: kdoctor
+  run: kdoctor scan --sarif --out=results.sarif
+
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
+```
+
+## Para agentes de IA
+
+kdoctor **no llama a ningún modelo de lenguaje y nunca edita tus ficheros**. El agente que lo invoca ya tiene un modelo; lanzar otro duplica coste y latencia.
+
+En su lugar emite lo que ese modelo necesita:
+
+```bash
 kdoctor fix --json
+```
 
-# Tras aplicar los cambios, comprobar que el Kotlin sigue balanceado
+Por cada hallazgo: la ventana de código numerada, la regla, la pista de arreglo y **el rango exacto de líneas a reemplazar**. Sin ese rango, el agente tiene que adivinar qué sustituir.
+
+Después de aplicar los cambios:
+
+```bash
 kdoctor fix --validate src/main/kotlin/MiFichero.kt
 ```
 
-> `--ai` y `--mode` se siguen aceptando con un aviso de deprecación, para no romper scripts existentes.
+Pasa un lexer de Kotlin sobre el fichero y comprueba que sigue balanceado. Es un *sanity check*, no un compilador: caza el fallo típico de un parche que se dejó una llave por el camino.
 
----
+### Servidor MCP
 
-## 🔌 Configuración para IDEs y Agentes IA (MCP Server)
-
-Para integrar `kdoctor` en Cursor, Claude Code o MobiAI CLI, añade la siguiente entrada a la configuración MCP (`mcpServers`):
+`kdoctor-mcp` expone `kdoctor_scan`, `kdoctor_rules`, `kdoctor_init`, `kdoctor_doctor` y `kdoctor_fix_suggest` por stdio a Claude Code, Cursor o Cline:
 
 ```json
 {
   "mcpServers": {
     "kdoctor": {
-      "command": "C:/ruta/a/kdoctor-mcp.exe",
-      "env": {
-        "KDOCTOR_BIN": "C:/ruta/a/kdoctor.exe"
-      }
+      "command": "/ruta/a/kdoctor-mcp",
+      "env": { "KDOCTOR_BIN": "/ruta/a/kdoctor" }
     }
   }
 }
 ```
 
----
+Se publica junto al binario principal en cada release.
 
-## ⚙️ Configuración del Proyecto (`kdoctor.config.yaml`)
+### Como skill
 
-Ejemplo de personalización de reglas por equipo:
+[`SKILL.md`](SKILL.md) sigue el estándar agentskills.io y es autocontenido. Cópialo al host que uses:
+
+```bash
+mkdir -p ~/.claude/skills/kdoctor && cp SKILL.md ~/.claude/skills/kdoctor/
+```
+
+Con MobiAI instalado encadena bien con MobiAI Graph: `mobiai graph context "audit module app"` acota el radio de impacto, `kdoctor scan --diff main --json` lo mide. Ver [docs/integrations/mobiai.md](docs/integrations/mobiai.md).
+
+## El catálogo de reglas
+
+**117 reglas catalogadas, 64 activas.** De las activas:
+
+| origen | reglas | qué cubren |
+|---|---:|---|
+| Detectores nativos en Go | 20 | Arquitectura por capas, Compose, corrutinas, seguridad. Sin JVM |
+| detekt core | 23 | Complejidad, naming, dead code, excepciones |
+| Plugin de reglas de Compose | 21 | `ModifierMissing`, `LambdaParameterInRestartableEffect`, `ViewModelForwarding`… |
+
+Las 53 restantes están marcadas `planned` y **no se evalúan**: el catálogo no promete lo que no cumple. `kdoctor rules list` muestra el estado de cada una y de dónde se cargó.
+
+Clusters con reglas activas: `architecture`, `compose-performance`, `coroutines`, `security`, `error-handling`, `complexity`, `naming`, `dead-code`, `testing`, `formatting`, `magic-numbers`, `clean-code`.
+
+Todavía sin implementar: `kmp`, `memory`, `accessibility`, `lifecycle`.
+
+## Cómo se calcula el score
+
+```
+penalización = severidad × peso_del_cluster × rendimientos_decrecientes
+score        = 100 − (críticos / √KLOC + resto / KLOC)
+```
+
+- **Severidad**: error 5, warning 2, info 0,5.
+- **Peso del cluster**: seguridad ×2, arquitectura ×1,5, corrutinas/memoria/lifecycle ×1,25, Compose/testing/KMP ×1, el resto ×0,75.
+- **Rendimientos decrecientes**: la cuarta vez que la misma regla salta en el mismo fichero cuenta un cuarto de lo que contó la primera.
+- **Los hallazgos críticos** (errores de seguridad, arquitectura o memoria) se normalizan por `√KLOC` en vez de por `KLOC`, así que su peso relativo crece con el tamaño del proyecto: no se diluyen, pero tampoco clavan el resultado.
+
+Calibrado contra proyectos públicos de referencia, no eligiendo constantes a ojo:
+
+| proyecto | score |
+|---|---:|
+| [skydoves/pokedex-kmp](https://github.com/skydoves/pokedex-kmp) | 85 |
+| Un proyecto KMP real de 16,6 KLOC en desarrollo activo | 84 |
+| `examples/bad-project` (antipatrones a propósito) | 55 |
+
+**Léelo como una tendencia, no como una nota.** La pregunta útil es "¿este cambio lo mejora o lo empeora?", no "¿72 está bien?".
+
+Por debajo de ~1 KLOC el score no es fiable: hay demasiada varianza para que la densidad signifique nada.
+
+## Configuración
+
+Opcional. `kdoctor init --type=cmp` genera un punto de partida.
 
 ```yaml
-projectType: cmp
+projectType: cmp          # android | kmp | cmp
 
 excludes:
   - "**/build/**"
-  - "**/.gradle/**"
 
-# Severidad por cluster o por regla concreta: error | warning | info | off
+# Severidad por cluster o por regla: error | warning | info | off
 rules:
   formatting: off
   security: warning
   coroutine-dispatchers-hardcoded: info
 
-# Quality gate: si el Health Score baja de aquí, exit code != 0.
-# Un `--fail-below` explícito en la línea de comandos tiene prioridad.
 score:
-  failBelow: 80
+  failBelow: 80           # --fail-below tiene prioridad sobre esto
 ```
 
-Genera el fichero con `kdoctor init`. Los campos son los de
-[`kdoctor.config.example.yaml`](kdoctor.config.example.yaml).
+Si tu proyecto ya tiene un `detekt.yml`, kdoctor lo usa. Sus reglas se **añaden** a las de detekt por defecto en vez de reemplazarlas, que es lo que casi siempre se quiere decir.
 
----
+### Variables de entorno
 
-## 🔗 Integración CI/CD y GitHub Actions
+| variable | para qué |
+|---|---|
+| `KDOCTOR_JAVA` | Apuntar a un JDK concreto |
+| `KDOCTOR_DETEKT_JAR` | Usar tu propio detekt en vez del descargado |
+| `KDOCTOR_NO_DOWNLOAD` | Prohibir accesos a red (entornos herméticos, Docker) |
+| `KDOCTOR_DETEKT_VERSION` | Fijar otra versión de detekt |
 
-```yaml
-- name: Run kdoctor Scan
-  run: kdoctor scan --sarif --out=results.sarif
+## Docker
 
-- name: Upload SARIF to GitHub Code Scanning
-  uses: github/codeql-action/upload-sarif@v3
-  with:
-    sarif_file: results.sarif
+```bash
+docker build -t kdoctor .
+docker run --rm -v "$PWD":/project kdoctor scan
 ```
 
----
+La imagen trae detekt, el plugin de Compose y un JDK 17 dentro. Funciona sin red y sin flags.
 
-## 📄 Licencia
-Este proyecto está bajo la Licencia MIT.
+## Contribuir
+
+El catálogo vive en [`scripts/genschema/main.go`](scripts/genschema/main.go), que es la fuente canónica. Para añadir una regla:
+
+1. Añade la entrada al catálogo.
+2. `go run ./scripts/genschema -out rules/metadata.json`
+3. Copia el resultado a `internal/core/rulemap/metadata.json` (es el que se embebe en el binario).
+4. Si es nativa, escribe el detector en [`internal/core/rules/rules.go`](internal/core/rules/rules.go) y cabléalo por ID.
+
+`validateCatalog()` comprueba IDs duplicados, severidades válidas y **colisiones de `detektRule`**: dos reglas no pueden reclamar la misma regla de detekt, porque el índice sólo conserva una y la otra queda inalcanzable.
+
+Antes de abrir un PR:
+
+```bash
+gofmt -l .      # sin salida
+go vet ./...
+go test ./...
+go build ./...
+```
+
+Si trabajas sobre este repo con un agente, lee primero [`HONEY.md`](HONEY.md).
+
+## Licencia
+
+MIT.
