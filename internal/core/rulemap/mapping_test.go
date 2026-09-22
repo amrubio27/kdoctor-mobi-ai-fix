@@ -480,3 +480,28 @@ func TestApplyOverrides_RuleLevelWinsOverCluster(t *testing.T) {
 		}
 	}
 }
+
+// TestNormalizeDetektRuleID covers the plugin-namespace case that used to make
+// every Compose rule unmappable: detekt emits "detekt.Compose.ModifierMissing"
+// while the catalog spells it "Compose:ModifierMissing", so stripping to the
+// last dot-segment lost the ruleset and the lookup always missed.
+func TestNormalizeDetektRuleID(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"detekt.complexity.LongMethod", "LongMethod"},
+		{"detekt.style.UnusedImports", "UnusedImports"},
+		{"detekt.potential-bugs.UnsafeCast", "UnsafeCast"},
+		{"detekt.Compose.ModifierMissing", "Compose:ModifierMissing"},
+		{"detekt.Compose.UnstableCollections", "Compose:UnstableCollections"},
+		{"LongMethod", "LongMethod"},
+		{"some.other.Thing", "Thing"},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := normalizeDetektRuleID(c.in); got != c.want {
+			t.Errorf("normalizeDetektRuleID(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}

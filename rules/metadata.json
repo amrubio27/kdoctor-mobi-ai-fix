@@ -31,13 +31,13 @@
     "cluster": "compose-performance",
     "severity": "info",
     "status": "live",
-    "fixHint": "Modularize large Composable functions (>80 lines) into smaller reusable UI components."
+    "fixHint": "Modularize large Composable functions (\u003e80 lines) into smaller reusable UI components."
   },
   {
     "id": "compose-remember-missing",
     "cluster": "compose-performance",
     "severity": "error",
-    "detektRule": "Compose:ReusedModifierInstance",
+    "detektRule": "Compose:RememberMissing",
     "status": "live",
     "fixHint": "Wrap mutable state in remember { mutableStateOf(...) }."
   },
@@ -45,15 +45,14 @@
     "id": "compose-state-hoisting",
     "cluster": "compose-performance",
     "severity": "warning",
-    "detektRule": "Compose:ModifierHeightWithText",
-    "status": "live",
+    "status": "planned",
     "fixHint": "Move state up and receive callbacks down."
   },
   {
     "id": "compose-modifier-frequent-changes",
     "cluster": "compose-performance",
     "severity": "warning",
-    "detektRule": "Compose:ReusedModifierInstance",
+    "detektRule": "Compose:ModifierReused",
     "status": "live",
     "fixHint": "Hoist the Modifier to a parameter or remember it."
   },
@@ -80,8 +79,7 @@
     "id": "compose-runtime-import-bleeding",
     "cluster": "compose-performance",
     "severity": "error",
-    "detektRule": "Compose:ComposableNaming",
-    "status": "live",
+    "status": "planned",
     "fixHint": "Don't import compose.runtime.* outside @Composable functions."
   },
   {
@@ -147,8 +145,7 @@
     "id": "lifecycle-collect-as-state-missing",
     "cluster": "lifecycle",
     "severity": "error",
-    "detektRule": "Compose:CollectAsStateWithLifecycle",
-    "status": "live",
+    "status": "planned",
     "fixHint": "Replace collectAsState() with collectAsStateWithLifecycle() or repeatOnLifecycle to prevent background state leaks."
   },
   {
@@ -229,7 +226,7 @@
     "id": "arch-public-api-mutable-state",
     "cluster": "architecture",
     "severity": "error",
-    "detektRule": "Compose:MutableStateAutoboxing",
+    "detektRule": "Compose:MutableStateParam",
     "status": "live",
     "fixHint": "Expose StateFlow/SharedFlow as read-only (asStateFlow()/asSharedFlow()) and use atomic _uiState.update { ... } in ViewModels."
   },
@@ -534,16 +531,14 @@
     "id": "compose-derived-state-unremembered",
     "cluster": "compose-performance",
     "severity": "error",
-    "detektRule": "Compose:DerivedStateWithoutRemember",
-    "status": "live",
+    "status": "planned",
     "fixHint": "Wrap derivedStateOf { ... } inside remember { ... } to prevent recalculation on every recomposition."
   },
   {
     "id": "compose-unstable-collection-params",
     "cluster": "compose-performance",
     "severity": "warning",
-    "detektRule": "Compose:UnstableCollections",
-    "status": "live",
+    "status": "planned",
     "fixHint": "Replace standard Kotlin List/Set/Map with ImmutableList or annotate UI state with @Immutable."
   },
   {
@@ -638,7 +633,7 @@
     "cluster": "architecture",
     "severity": "warning",
     "status": "live",
-    "fixHint": "Do not leak Data DTOs/Entities to Domain/UI. Use Mappers to transform Data -> Domain -> UiModel."
+    "fixHint": "Do not leak Data DTOs/Entities to Domain/UI. Use Mappers to transform Data -\u003e Domain -\u003e UiModel."
   },
   {
     "id": "error-handling-layer-mapping",
@@ -659,7 +654,7 @@
     "cluster": "compose-performance",
     "severity": "warning",
     "status": "live",
-    "fixHint": "Prevent unnecessary recompositions: break down large Composables (>80 lines), use lambda modifiers/graphicsLayer, and annotate state with @Immutable."
+    "fixHint": "Prevent unnecessary recompositions: break down large Composables (\u003e80 lines), use lambda modifiers/graphicsLayer, and annotate state with @Immutable."
   },
   {
     "id": "ui-hardcoded-strings",
@@ -688,5 +683,133 @@
     "severity": "error",
     "status": "live",
     "fixHint": "Ensure RepositoryImpl classes implement their corresponding domain Repository interface (DIP contract)."
+  },
+  {
+    "id": "compose-lambda-in-restartable-effect",
+    "cluster": "compose-performance",
+    "severity": "error",
+    "detektRule": "Compose:LambdaParameterInRestartableEffect",
+    "status": "live",
+    "fixHint": "Wrap the lambda in rememberUpdatedState() before using it inside LaunchedEffect/DisposableEffect, or the effect will capture a stale reference."
+  },
+  {
+    "id": "compose-remember-content-missing",
+    "cluster": "compose-performance",
+    "severity": "error",
+    "detektRule": "Compose:RememberContentMissing",
+    "status": "live",
+    "fixHint": "Wrap movableContentOf in remember { ... } so the content is not recreated on every recomposition."
+  },
+  {
+    "id": "compose-mutable-params",
+    "cluster": "compose-performance",
+    "severity": "error",
+    "detektRule": "Compose:MutableParams",
+    "status": "live",
+    "fixHint": "Do not pass mutable objects (ArrayList, var-holding classes) to a Composable: Compose cannot detect their changes, so the UI silently goes stale."
+  },
+  {
+    "id": "compose-modifier-composed",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "detektRule": "Compose:ModifierComposed",
+    "status": "live",
+    "fixHint": "Modifier.composed is deprecated for performance reasons. Migrate the modifier to Modifier.Node."
+  },
+  {
+    "id": "compose-modifier-missing",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "detektRule": "Compose:ModifierMissing",
+    "status": "live",
+    "fixHint": "Public Composables that emit UI should take a Modifier parameter so callers can size and position them."
+  },
+  {
+    "id": "compose-modifier-without-default",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "detektRule": "Compose:ModifierWithoutDefault",
+    "status": "live",
+    "fixHint": "Give the Modifier parameter a default value of Modifier so callers may omit it."
+  },
+  {
+    "id": "compose-modifier-not-used-at-root",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "detektRule": "Compose:ModifierNotUsedAtRoot",
+    "status": "live",
+    "fixHint": "Apply the Modifier parameter to the root element of the Composable, otherwise caller layout instructions are ignored."
+  },
+  {
+    "id": "arch-composition-local-allowlist",
+    "cluster": "architecture",
+    "severity": "warning",
+    "detektRule": "Compose:CompositionLocalAllowlist",
+    "status": "live",
+    "fixHint": "CompositionLocals are implicit dependencies that make Composables hard to test. Pass the value explicitly, or add the local to the allowlist if it is intentional."
+  },
+  {
+    "id": "arch-compose-viewmodel-forwarding",
+    "cluster": "architecture",
+    "severity": "warning",
+    "detektRule": "Compose:ViewModelForwarding",
+    "status": "live",
+    "fixHint": "Do not forward a ViewModel down to child Composables. Pass the state it exposes and lambdas for the events instead."
+  },
+  {
+    "id": "arch-compose-viewmodel-injection",
+    "cluster": "architecture",
+    "severity": "warning",
+    "detektRule": "Compose:ViewModelInjection",
+    "status": "live",
+    "fixHint": "Obtain the ViewModel at the screen-level Composable and pass state down, rather than injecting it deep in the tree."
+  },
+  {
+    "id": "compose-content-emitter-returning-values",
+    "cluster": "compose-performance",
+    "severity": "warning",
+    "detektRule": "Compose:ContentEmitterReturningValues",
+    "status": "live",
+    "fixHint": "A Composable should either emit UI or return a value, not both."
+  },
+  {
+    "id": "compose-material2",
+    "cluster": "compose-performance",
+    "severity": "info",
+    "detektRule": "Compose:Material2",
+    "status": "live",
+    "fixHint": "This project targets Material 3. Replace the androidx.compose.material (M2) import with androidx.compose.material3."
+  },
+  {
+    "id": "dead-compose-preview-public",
+    "cluster": "dead-code",
+    "severity": "info",
+    "detektRule": "Compose:PreviewPublic",
+    "status": "live",
+    "fixHint": "@Preview Composables are only used by the IDE. Make them private so they are not part of the public API."
+  },
+  {
+    "id": "clean-compose-param-order",
+    "cluster": "clean-code",
+    "severity": "info",
+    "detektRule": "Compose:ComposableParamOrder",
+    "status": "live",
+    "fixHint": "Order Composable parameters as: required, then Modifier, then optional. It makes call sites readable and trailing lambdas work."
+  },
+  {
+    "id": "naming-compose-parameters",
+    "cluster": "naming",
+    "severity": "info",
+    "detektRule": "Compose:ParameterNaming",
+    "status": "live",
+    "fixHint": "Name lambda parameters that describe events as onSomething, and slot parameters as nouns."
+  },
+  {
+    "id": "compose-state-autoboxing",
+    "cluster": "compose-performance",
+    "severity": "info",
+    "detektRule": "Compose:MutableStateAutoboxing",
+    "status": "live",
+    "fixHint": "Use mutableIntStateOf/mutableLongStateOf/mutableFloatStateOf instead of mutableStateOf for primitives to avoid autoboxing on every write."
   }
 ]
