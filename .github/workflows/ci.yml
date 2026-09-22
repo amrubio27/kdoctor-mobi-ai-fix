@@ -57,6 +57,17 @@ jobs:
             go.sum
             **/go.mod
 
+      # The integration tests run a real scan now, and kdoctor fetches detekt
+      # (~50 MB) plus the Compose rules plugin on first use. Cache them so only
+      # the first run on a new pinned version pays for it.
+      - name: Cache kdoctor tool downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.kdoctor/tools
+          key: kdoctor-tools-${{ runner.os }}-${{ hashFiles('internal/core/detektrunner/provision.go') }}
+          restore-keys: |
+            kdoctor-tools-${{ runner.os }}-
+
       # Round-3 #9 part A: detect formatting drift.
       # `gofmt -l` lists files that DO NOT match canonical gofmt format.
       # Empty output = clean. Non-empty = fail.

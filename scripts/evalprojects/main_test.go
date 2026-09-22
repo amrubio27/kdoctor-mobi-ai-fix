@@ -186,6 +186,16 @@ func runFixture(t *testing.T, fixturePath string, useRelative bool) {
 		t.Fatalf("kdoctor scan exit=%v\n--- output ---\n%s\n--- end ---",
 			err, truncateForLog(string(out), 4000))
 	}
+	// A degraded scan evaluates only the native rules, so the fixture drops to
+	// ~4 findings and its score climbs out of band. Failing on the band alone
+	// would report "score 80 not in [45,65]" and say nothing about why, so name
+	// the real cause: detekt could not run on this machine.
+	if strings.Contains(string(out), "Partial scan") {
+		t.Fatalf("detekt did not run, so this fixture measured only the native rules.\n"+
+			"The band in %s assumes a full scan. kdoctor output:\n%s",
+			filepath.Base(fixturePath), truncateForLog(string(out), 2000))
+	}
+
 	var r report
 	if err := json.Unmarshal(out, &r); err != nil {
 		t.Fatalf("parse kdoctor JSON: %v\n--- output (first 4000B) ---\n%s",
