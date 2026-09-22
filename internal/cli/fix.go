@@ -5,49 +5,50 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/aifixer/applier"
 	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/aifixer/patchguard"
-	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/aifixer/provider"
-	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/aifixer/qualityprompt"
-	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/detektrunner"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/aifixer/remediation"
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/grader"
 	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/rulemap"
 	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/rules"
-	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/sarif"
-	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
-// fixProvider abstracts the AI provider so the command can be tested with
-// a fake implementation that returns deterministic patches.
-type fixProvider interface {
-	Fix(prompt string) (string, error)
-}
-
+// NewFixCmd builds the `fix` command.
+//
+// It used to take an injectable provider so tests could stub the LLM call.
+// There is no LLM call any more, so there is nothing to inject: the command
+// reads findings and writes a plan, both of which are directly observable.
 func NewFixCmd() *cobra.Command {
-	return newFixCmdWithProvider(nil)
-}
-
-func newFixCmdWithProvider(p fixProvider) *cobra.Command {
 	var ai bool
 	var mode string
 	var preferStandalone bool
 	var projectDir string
 	var detektBin string
 	var contextLines int
+	var detektMode string
+	var noDownload bool
+	var asJSON bool
+	var validate bool
 
 	cmd := &cobra.Command{
 		Use:   "fix",
-		Short: "Auto-fix issues using AI or basic refactorings",
+		Short: "Emit a remediation plan for the findings (for an agent to apply)",
+		Long: "Scan the project and emit a remediation plan: for every finding, the " +
+			"source window around it, the rule, the fix hint and the exact line range to " +
+			"replace.\n\nkdoctor does not call a language model and never edits your " +
+			"source files. The agent that invoked kdoctor already has a model; this " +
+			"command gives it what it needs.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !ai {
-				return fmt.Errorf("currently only --ai is supported for the fix command")
+			// --ai and --mode described a model kdoctor no longer implements: it does
+			// not call an LLM and never writes to source files. Both are accepted so
+			// existing scripts keep running, with one warning instead of an error.
+			if ai {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Note: --ai is deprecated and ignored. kdoctor emits a remediation plan for your agent instead of calling a model itself.")
 			}
-
-			if mode != "suggest" && mode != "interactive" && mode != "auto" {
-				return fmt.Errorf("invalid mode %q. Use suggest, interactive, or auto", mode)
+			if mode == "auto" || mode == "interactive" {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Note: --mode=%s is deprecated and ignored. kdoctor no longer edits source files; apply the plan yourself and validate it with `kdoctor fix --validate`.\n", mode)
 			}
 
 			// 1. Scan the project
@@ -55,40 +56,34 @@ func newFixCmdWithProvider(p fixProvider) *cobra.Command {
 			if wd == "" {
 				wd, _ = os.Getwd()
 			}
-			runnerMode := detektrunner.Detect(wd, preferStandalone, detektBin)
 			sarifPath := filepath.Join(os.TempDir(), "kdoctor-detekt-fix.sarif")
 			out := cmd.OutOrStdout()
 
-			fmt.Fprintln(out, "Scanning project for issues...")
-			if _, err := detektrunner.RunDetekt(context.Background(), detektrunner.Options{
-				ProjectDir:     wd,
-				SARIFOutput:    sarifPath,
-				UseStandalone:  runnerMode == detektrunner.ModeStandalone,
-				StandalonePath: detektBin,
-				Stdout:         os.Stderr, // Redirect detekt output to stderr
-			}); err != nil {
-				return fmt.Errorf("detekt: %w", err)
+			// --validate only inspects files the agent already wrote; scanning
+			// first would cost a detekt run for nothing.
+			if validate {
+				return runValidate(cmd, wd, args)
 			}
 
-			f, err := os.Open(sarifPath)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
+			// Progress goes to stderr so --json leaves stdout parseable.
+			fmt.Fprintln(cmd.ErrOrStderr(), "Scanning project for issues...")
 
-			raw, err := sarif.Parse(f)
+			// Load the catalog first: the detekt phase reports coverage loss in
+			// terms of it when it has to degrade.
+			loadResult, err := rulemap.LoadRulesCascade(wd, "")
 			if err != nil {
-				return err
+				return fmt.Errorf("load rules: %w", err)
 			}
+			ruleCatalog := loadResult.Rules
 
-			rulesPath, err := resolveRulesPath()
-			if err != nil {
-				return fmt.Errorf("rules metadata: %w", err)
-			}
-			ruleCatalog, err := rulemap.LoadRules(rulesPath)
-			if err != nil {
-				return err
-			}
+			raw := runDetektPhase(context.Background(), cmd, detektPhaseOptions{
+				ProjectDir:  wd,
+				SARIFPath:   sarifPath,
+				ExplicitBin: detektBin,
+				Mode:        detektModeFromFlags(detektMode),
+				NoDownload:  noDownload,
+				Catalog:     ruleCatalog,
+			})
 
 			// Run native rules
 			nativeFindings, err := rules.RunRegexDetectors(wd, ruleCatalog)
@@ -101,131 +96,105 @@ func newFixCmdWithProvider(p fixProvider) *cobra.Command {
 			mapped := idx.Map(raw)
 
 			if len(mapped) == 0 {
-				fmt.Fprintln(out, "No issues found to fix.")
+				fmt.Fprintln(cmd.ErrOrStderr(), "No issues found to fix.")
 				return nil
 			}
 
 			// 2. Generate fixes
-			fmt.Fprintf(out, "Found %d issues. Generating fixes in %q mode...\n", len(mapped), mode)
+			fmt.Fprintf(cmd.ErrOrStderr(), "Found %d issue(s).\n", len(mapped))
 
-			if p == nil {
-				p = &provider.ClaudeProvider{}
-			}
-			var fixesBuilder strings.Builder
-			fixesBuilder.WriteString("# kdoctor AI Fixes\n\n")
-
-			type appliedFix struct {
-				file   string
-				id     string
-				status string
-			}
-			var applied []appliedFix
-
-			for _, finding := range mapped {
-				if finding.File == "" {
-					continue
+			// kdoctor no longer calls a language model. It emits the context an agent
+			// needs -- source window, rule, hint, exact line range -- and lets the
+			// model that invoked kdoctor produce the patch. See
+			// internal/aifixer/remediation for why.
+			read := func(rel string) (string, error) {
+				path := rel
+				if !filepath.IsAbs(path) {
+					path = filepath.Join(wd, rel)
 				}
-
-				sourceCodeBytes, err := os.ReadFile(finding.File)
-				var sourceCode string
-				if err != nil {
-					fmt.Fprintf(out, "Error reading %s: %v\n", finding.File, err)
-					continue
-				}
-				sourceCode = string(sourceCodeBytes)
-
-				prompt, err := qualityprompt.BuildPromptWithContext(finding, sourceCode, contextLines)
-				if err != nil {
-					fmt.Fprintf(out, "Error building prompt for %s: %v\n", finding.ID, err)
-					continue
-				}
-
-				patch, err := p.Fix(prompt)
-				if err != nil {
-					fmt.Fprintf(out, "Provider failed for %s: %v\n", finding.ID, err)
-					patch = fmt.Sprintf("```kotlin\n// Provider failed: %v\n```", err)
-				}
-
-				fixesBuilder.WriteString(fmt.Sprintf("## Fix for %s in %s:%d\n\n", finding.ID, finding.File, finding.Line))
-				fixesBuilder.WriteString(patch)
-				fixesBuilder.WriteString("\n\n---\n\n")
-
-				if mode == "auto" {
-					status, err := applyFix(finding, sourceCode, patch, contextLines)
-					applied = append(applied, appliedFix{file: finding.File, id: finding.ID, status: status})
-					if err != nil {
-						fmt.Fprintf(out, "[%s] %s: %v\n", status, finding.ID, err)
-					} else {
-						fmt.Fprintf(out, "[%s] %s in %s\n", status, finding.ID, finding.File)
-					}
-				}
+				b, err := os.ReadFile(path)
+				return string(b), err
 			}
 
-			fixesFile := "fixes.md"
-			if err := os.WriteFile(fixesFile, []byte(fixesBuilder.String()), 0644); err != nil {
-				return fmt.Errorf("failed to write %s: %w", fixesFile, err)
+			totalLines := grader.CountKotlinLines(wd)
+			score, _ := grader.ScoreWithKLOC(mapped, totalLines)
+			plan, skipped := remediation.Build(wd, score, mapped, contextLines, read)
+			for _, f := range skipped {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not read %s; its findings were left out of the plan.\n", f)
 			}
 
-			fmt.Fprintf(out, "Generated fixes and saved to %s\n", fixesFile)
-
-			if mode == "auto" && len(applied) > 0 {
-				fmt.Fprintln(out, "\nAuto-fix summary:")
-				for _, a := range applied {
-					fmt.Fprintf(out, "  %s: %s (%s)\n", a.status, a.id, a.file)
-				}
+			if asJSON {
+				return remediation.WriteJSON(plan, out)
 			}
+
+			// Write the plan next to the code it describes, not wherever the process
+			// happened to start.
+			fixesFile := filepath.Join(wd, "fixes.md")
+			f, err := os.Create(fixesFile)
+			if err != nil {
+				return fmt.Errorf("create %s: %w", fixesFile, err)
+			}
+			defer func() { _ = f.Close() }()
+			if err := remediation.WriteMarkdown(plan, f); err != nil {
+				return fmt.Errorf("write %s: %w", fixesFile, err)
+			}
+
+			fmt.Fprintf(out, "Remediation plan for %d finding(s) written to %s\n", len(plan.Items), fixesFile)
+			fmt.Fprintf(out, "Health Score: %d/100\n", score)
 
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVar(&ai, "ai", false, "Use AI to fix issues")
-	cmd.Flags().StringVar(&mode, "mode", "suggest", "Mode of operation: suggest|interactive|auto")
-	cmd.Flags().BoolVar(&preferStandalone, "prefer-standalone", false, "prefer standalone detekt binary over ./gradlew")
+	cmd.Flags().BoolVar(&ai, "ai", false, "deprecated: ignored, kdoctor no longer calls a model")
+	cmd.Flags().StringVar(&mode, "mode", "suggest", "deprecated: ignored, kdoctor never writes to source files")
+	cmd.Flags().BoolVar(&preferStandalone, "prefer-standalone", false, "deprecated: standalone is now the default")
 	cmd.Flags().StringVar(&projectDir, "project-dir", "", "project directory to fix (default: cwd)")
 	cmd.Flags().StringVar(&detektBin, "detekt-bin", "", "explicit path to detekt binary")
-	cmd.Flags().IntVar(&contextLines, "context-lines", 10, "number of source lines to include before/after finding.Line in the prompt (0 or negative falls back to 10)")
+	cmd.Flags().StringVar(&detektMode, "detekt-mode", "auto", "how to run detekt: auto|standalone|gradle")
+	cmd.Flags().BoolVar(&noDownload, "no-download", false, "never fetch detekt over the network")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the remediation plan as JSON on stdout (for agents and the MCP server)")
+	cmd.Flags().BoolVar(&validate, "validate", false, "check that the given Kotlin files still parse (run this after applying a plan)")
+	cmd.Flags().IntVar(&contextLines, "context-lines", 10, "source lines of context to include around each finding (0 or negative falls back to 10)")
 
 	return cmd
 }
 
-// applyFix applies an LLM patch to a single finding in memory, validates the
-// patched source with patchguard, and writes the result to disk only if it
-// passes validation. Because the patched source is computed in memory and the
-// file is only written after validation succeeds, a validation failure leaves
-// the original file untouched. Returns a short status string ("applied",
-// "failed", "skipped") and an error if the operation could not be completed
-// cleanly.
-func applyFix(finding types.Finding, sourceCode string, patch string, contextLines int) (string, error) {
-	// 1. Extract the replacement snippet from the LLM response.
-	snippet, err := applier.ExtractCodeBlock(patch)
-	if err != nil {
-		return "failed", fmt.Errorf("extract code block: %w", err)
+// runValidate is the other half of handing patching to the agent: kdoctor no
+// longer writes files, but it still owns the cheap structural check that used
+// to gate its own writes. Running it after an agent edits Kotlin catches the
+// failure mode that matters -- a patch that dropped or duplicated a brace --
+// without needing a compiler.
+//
+// This is a sanity check, not a parser: it counts delimiters while respecting
+// strings, raw strings, char literals, templates and comments. Balanced code
+// can still be wrong.
+func runValidate(cmd *cobra.Command, wd string, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("--validate needs at least one file, e.g. kdoctor fix --validate src/Foo.kt")
 	}
-
-	// 2. Determine the line window that was shown to the LLM.
-	lines := qualityprompt.SplitLines(sourceCode)
-	start, end := qualityprompt.SliceRange(finding.Line, contextLines, len(lines))
-	if start == 0 && end == 0 {
-		return "failed", fmt.Errorf("empty source file")
+	out := cmd.OutOrStdout()
+	var failed int
+	for _, rel := range args {
+		path := rel
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(wd, rel)
+		}
+		src, err := os.ReadFile(path)
+		if err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "%s: %v\n", rel, err)
+			failed++
+			continue
+		}
+		if err := patchguard.Validate(string(src)); err != nil {
+			fmt.Fprintf(out, "FAIL %s: %v\n", rel, err)
+			failed++
+			continue
+		}
+		fmt.Fprintf(out, "ok   %s\n", rel)
 	}
-
-	// 3. Apply the patch in memory.
-	patchedCode, err := applier.ApplyPatch(sourceCode, snippet, start, end)
-	if err != nil {
-		return "failed", fmt.Errorf("apply patch: %w", err)
+	if failed > 0 {
+		return fmt.Errorf("%d file(s) failed validation", failed)
 	}
-
-	// 4. Validate the patched source. If validation fails, do NOT write the
-	// file; the caller still holds the original content in memory.
-	if err := patchguard.Validate(patchedCode); err != nil {
-		return "failed", fmt.Errorf("patchguard validation: %w", err)
-	}
-
-	// 5. Write the patched source. If this fails, restore the original file.
-	if err := os.WriteFile(finding.File, []byte(patchedCode), 0644); err != nil {
-		return "failed", fmt.Errorf("write file: %w", err)
-	}
-
-	return "applied", nil
+	return nil
 }

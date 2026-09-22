@@ -11,7 +11,7 @@
 //   - kdoctor_rules       : list the kdoctor rule catalog
 //   - kdoctor_init        : bootstrap kdoctor in a project directory
 //   - kdoctor_doctor      : diagnose the kdoctor environment
-//   - kdoctor_fix_suggest : generate AI fix suggestions without applying them
+//   - kdoctor_fix_suggest : return a remediation plan for the caller to apply
 //
 // The server expects a `kdoctor` binary available in PATH or pointed to by
 // the KDOCTOR_BIN environment variable.
@@ -111,7 +111,7 @@ var tools = []tool{
 	},
 	{
 		Name:        "kdoctor_fix_suggest",
-		Description: "Generate AI-driven fix suggestions for a project without applying them.",
+		Description: "Return a remediation plan: every finding with its source window, rule, fix hint and the exact line range to replace. kdoctor does not call a model and never edits files; you apply the changes.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -309,7 +309,9 @@ func runFixSuggest(bin string, args json.RawMessage) rpcResponse {
 		return rpcResponse{JSONRPC: "2.0", Error: newRPCError(-32602, "invalid arguments: %v", err)}
 	}
 
-	argv := []string{"fix", "--ai", "--mode", "suggest"}
+	// --json makes stdout a parseable remediation plan; progress goes to
+	// stderr, so what reaches the agent is data rather than a transcript.
+	argv := []string{"fix", "--json"}
 	if p.ProjectDir != "" {
 		argv = append(argv, "--project-dir", p.ProjectDir)
 	}

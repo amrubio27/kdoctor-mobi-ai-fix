@@ -1,98 +1,163 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
-
-	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/types"
 )
 
-// fakeProvider lets us inject deterministic LLM responses.
-type fakeProvider struct {
-	response string
-	err      error
-}
+// leakyKotlin trips the native sec-log-pii detector, so these tests need no
+// detekt and no JVM.
+const leakyKotlin = "package demo\n\n" +
+	"fun login(password: String) {\n" +
+	"    Log.d(\"auth\", \"password=\" + password)\n" +
+	"}\n"
 
-func (f *fakeProvider) Fix(prompt string) (string, error) {
-	return f.response, f.err
-}
-
-func TestApplyFix_AppliesValidPatch(t *testing.T) {
-	dir := t.TempDir()
-	srcPath := filepath.Join(dir, "App.kt")
-	original := "package com.example\n\nfun main() {\n    val x = 1\n    println(\"hello\")\n    val y = 2\n}\n"
-	if err := os.WriteFile(srcPath, []byte(original), 0644); err != nil {
+func writeProject(t *testing.T) (dir, srcPath string) {
+	t.Helper()
+	dir = t.TempDir()
+	srcPath = filepath.Join(dir, "Leaky.kt")
+	if err := os.WriteFile(srcPath, []byte(leakyKotlin), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	return dir, srcPath
+}
 
-	// LLM returns a replacement for the whole shown window.
-	patch := "```kotlin\n    val x = 1\n    println(\"hello world\")\n    val y = 2\n```"
-	finding := types.Finding{File: srcPath, Line: 5, ID: "dummy"}
+// fixArgs keeps detekt out of the way so these stay fast and hermetic.
+func fixArgs(dir string, extra ...string) []string {
+	return append([]string{
+		"--project-dir=" + dir,
+		"--detekt-bin=" + filepath.Join(dir, "no-such-detekt"),
+	}, extra...)
+}
 
-	status, err := applyFix(finding, original, patch, 1)
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
-	}
-	if status != "applied" {
-		t.Fatalf("expected status applied, got %q", status)
+// TestFixNeverModifiesSource is the invariant that replaced a data-loss bug.
+//
+// `fix` used to patch files in place, and when its LLM provider failed it
+// synthesised a "// Provider failed" patch. That comment is brace-balanced, so
+// patchguard accepted it and --mode=auto wrote it over real code. kdoctor no
+// longer edits source at all, which makes the property absolute rather than
+// conditional on a provider behaving.
+func TestFixNeverModifiesSource(t *testing.T) {
+	dir, srcPath := writeProject(t)
+
+	// Include the deprecated flags that used to trigger in-place edits.
+	cmd := NewFixCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs(fixArgs(dir, "--ai", "--mode=auto"))
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("fix failed: %v", err)
 	}
 
 	got, err := os.ReadFile(srcPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "package com.example\n\nfun main() {\n    val x = 1\n    println(\"hello world\")\n    val y = 2\n}\n"
-	if string(got) != want {
-		t.Fatalf("want %q, got %q", want, string(got))
+	if string(got) != leakyKotlin {
+		t.Fatalf("fix modified source.\nwant: %q\ngot:  %q", leakyKotlin, string(got))
 	}
 }
 
-func TestApplyFix_RollsBackWhenPatchGuardFails(t *testing.T) {
-	dir := t.TempDir()
-	srcPath := filepath.Join(dir, "App.kt")
-	original := "package com.example\n\nfun main() {\n    val x = 1\n    println(\"hello\")\n    val y = 2\n}\n"
-	if err := os.WriteFile(srcPath, []byte(original), 0644); err != nil {
+func TestFixWritesPlanIntoProjectDir(t *testing.T) {
+	dir, _ := writeProject(t)
+
+	cmd := NewFixCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs(fixArgs(dir))
+	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	// LLM returns a replacement for the whole shown window with unbalanced braces.
-	patch := "```kotlin\n    val x = 1\n    println(\"hello\" {\n    val y = 2\n```"
-	finding := types.Finding{File: srcPath, Line: 5, ID: "dummy"}
-
-	status, err := applyFix(finding, original, patch, 1)
-	if err == nil {
-		t.Fatal("expected error for invalid patch")
-	}
-	if status != "failed" {
-		t.Fatalf("expected status failed, got %q", status)
-	}
-
-	// File must be unchanged.
-	got, err := os.ReadFile(srcPath)
+	// The report belongs next to the code it describes, not in the CWD -- a
+	// stray fixes.md ended up committed at the repo root that way.
+	data, err := os.ReadFile(filepath.Join(dir, "fixes.md"))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("expected fixes.md inside --project-dir: %v", err)
 	}
-	if string(got) != original {
-		t.Fatalf("file was modified despite validation failure; want %q, got %q", original, string(got))
+	for _, want := range []string{"remediation plan", "sec-log-pii", "Replace lines"} {
+		if !strings.Contains(string(data), want) {
+			t.Errorf("plan missing %q:\n%s", want, data)
+		}
 	}
 }
 
-func TestApplyFix_ExtractErrorWhenNoCodeBlock(t *testing.T) {
-	dir := t.TempDir()
-	srcPath := filepath.Join(dir, "App.kt")
-	original := "fun main() {}\n"
-	if err := os.WriteFile(srcPath, []byte(original), 0644); err != nil {
+func TestFixJSONPlanIsMachineReadable(t *testing.T) {
+	dir, _ := writeProject(t)
+
+	var buf bytes.Buffer
+	cmd := NewFixCmd()
+	cmd.SetOut(&buf)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs(fixArgs(dir, "--json"))
+	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	// Response is empty, so extraction should fail.
-	finding := types.Finding{File: srcPath, Line: 1, ID: "dummy"}
-	status, err := applyFix(finding, original, "", 1)
-	if err == nil {
-		t.Fatal("expected error for empty patch")
+	var plan struct {
+		SchemaVersion string `json:"schemaVersion"`
+		Instructions  string `json:"instructions"`
+		Items         []struct {
+			ID          string `json:"id"`
+			File        string `json:"file"`
+			Line        int    `json:"line"`
+			ReplaceFrom int    `json:"replaceFrom"`
+			ReplaceTo   int    `json:"replaceTo"`
+			Context     string `json:"context"`
+		} `json:"items"`
 	}
-	if status != "failed" {
-		t.Fatalf("expected status failed, got %q", status)
+	if err := json.Unmarshal(buf.Bytes(), &plan); err != nil {
+		t.Fatalf("plan is not valid JSON: %v\n%s", err, buf.String())
+	}
+	if plan.SchemaVersion == "" || plan.Instructions == "" {
+		t.Fatal("plan must carry a schema version and instructions")
+	}
+	if len(plan.Items) == 0 {
+		t.Fatal("expected at least one item for a file with a PII log leak")
+	}
+	for _, it := range plan.Items {
+		// Without a concrete line range the agent has to guess what to replace,
+		// which is what made the old in-place patching unsafe.
+		if it.ReplaceFrom < 1 || it.ReplaceTo < it.ReplaceFrom {
+			t.Errorf("item %s has an unusable range %d..%d", it.ID, it.ReplaceFrom, it.ReplaceTo)
+		}
+		if it.Context == "" {
+			t.Errorf("item %s carries no source context", it.ID)
+		}
+	}
+}
+
+func TestFixValidateDetectsUnbalancedKotlin(t *testing.T) {
+	dir := t.TempDir()
+	good := filepath.Join(dir, "Good.kt")
+	bad := filepath.Join(dir, "Bad.kt")
+	if err := os.WriteFile(good, []byte("fun a() {\n    println(\"ok\")\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A patch that swallowed a closing brace: the exact damage --validate exists
+	// to catch after an agent edits a file.
+	if err := os.WriteFile(bad, []byte("fun a() {\n    println(\"oops\")\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewFixCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--validate", "--project-dir=" + dir, good})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("balanced file should pass: %v", err)
+	}
+
+	cmd = NewFixCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	cmd.SetArgs([]string{"--validate", "--project-dir=" + dir, bad})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("unbalanced file should fail validation")
 	}
 }
