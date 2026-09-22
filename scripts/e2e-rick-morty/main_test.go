@@ -10,12 +10,14 @@ import (
 )
 
 func TestSmokeRickMortyApp(t *testing.T) {
+	// This exercises a private project that only one machine has, so it is
+	// opt-in rather than defaulted to a path nobody else can satisfy.
 	project := os.Getenv("RICK_MORTY_APP")
 	if project == "" {
-		project = "D:/Programacion/RickMortyApp"
+		t.Skip("set RICK_MORTY_APP to run this end-to-end smoke test")
 	}
 	if _, err := os.Stat(project); err != nil {
-		t.Skipf("RickMortyApp not found at %s (set RICK_MORTY_APP)", project)
+		t.Skipf("RICK_MORTY_APP points at %s, which does not exist", project)
 	}
 
 	root, ok := repoRoot()
@@ -36,7 +38,9 @@ func TestSmokeRickMortyApp(t *testing.T) {
 
 	run := exec.Command(out, "--smoke")
 	run.Dir = root
-	run.Env = append(os.Environ(), "KDOCTOR_DETEKT_BIN=D:/tools/detekt.cmd")
+	// Inherit the environment as-is: kdoctor resolves detekt by itself, and
+	// forcing one contributor path here defeated the point of the test.
+	run.Env = os.Environ()
 	output, err := run.CombinedOutput()
 	if err != nil {
 		t.Fatalf("e2e --smoke failed: %v\n%s", err, string(output))

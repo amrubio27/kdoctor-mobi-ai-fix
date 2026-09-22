@@ -3,7 +3,19 @@
 
 $ErrorActionPreference = "Stop"
 
-$mcpDir = "C:\Users\Miguel\.gemini\antigravity-ide\mcp\kdoctor"
+# Resolve everything from the current user and this repo. These were
+# hardcoded to one contributor home directory, so the script wrote files
+# nobody else could use - and setup-mcp.ps1 invoked it automatically.
+$mcpDir = Join-Path $env:USERPROFILE ".gemini\antigravity-ide\mcp\kdoctor"
+
+$repoRoot = Split-Path -Parent $PSScriptRoot
+if (-not $repoRoot) { $repoRoot = (Get-Location).Path }
+$kdoctorBin = if ($env:KDOCTOR_BIN) { $env:KDOCTOR_BIN } else { Join-Path $repoRoot "kdoctor.exe" }
+$kdoctorMcpBin = if ($env:KDOCTOR_MCP_BIN) { $env:KDOCTOR_MCP_BIN } else { Join-Path $repoRoot "kdoctor-mcp.exe" }
+
+foreach ($b in @($kdoctorBin, $kdoctorMcpBin)) {
+    if (!(Test-Path $b)) { Write-Warning "Not found: $b (build it first, or set KDOCTOR_BIN / KDOCTOR_MCP_BIN)" }
+}
 if (!(Test-Path $mcpDir)) {
     New-Item -ItemType Directory -Force -Path $mcpDir | Out-Null
 }
@@ -82,8 +94,8 @@ $fixSuggestJson = @'
 $instructions = @'
 # kdoctor MCP Server
 Exposes kdoctor CLI capabilities for auditing and diagnosing Android/KMP/CMP Kotlin code.
-Binary: C:\Users\Miguel\Desktop\doctor mobi ai fix\kdoctor.exe
-MCP Server: C:\Users\Miguel\Desktop\doctor mobi ai fix\kdoctor-mcp.exe
+Binary: __KDOCTOR_BIN__
+MCP Server: __KDOCTOR_MCP_BIN__
 '@
 
 Set-Content -Path (Join-Path $mcpDir "kdoctor_scan.json") -Value $scanJson -Encoding UTF8
@@ -91,6 +103,8 @@ Set-Content -Path (Join-Path $mcpDir "kdoctor_rules.json") -Value $rulesJson -En
 Set-Content -Path (Join-Path $mcpDir "kdoctor_init.json") -Value $initJson -Encoding UTF8
 Set-Content -Path (Join-Path $mcpDir "kdoctor_doctor.json") -Value $doctorJson -Encoding UTF8
 Set-Content -Path (Join-Path $mcpDir "kdoctor_fix_suggest.json") -Value $fixSuggestJson -Encoding UTF8
+$instructions = $instructions.Replace("__KDOCTOR_BIN__", $kdoctorBin).Replace("__KDOCTOR_MCP_BIN__", $kdoctorMcpBin)
 Set-Content -Path (Join-Path $mcpDir "instructions.md") -Value $instructions -Encoding UTF8
+Write-Host "Registered kdoctor MCP tools in $mcpDir" -ForegroundColor Green
 
 Write-Host "[OK] MCP Tools registrados exitosamente en Antigravity IDE ($mcpDir)" -ForegroundColor Green

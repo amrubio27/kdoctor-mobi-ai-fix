@@ -1,7 +1,7 @@
 {
   "projectPath": "examples/bad-project",
-  "minScoreExpected": 70,
-  "maxScoreExpected": 90,
+  "minScoreExpected": 45,
+  "maxScoreExpected": 65,
   "mustIncludeFinding": [
     "coroutine-global-scope",
     "dead-unused-import",
@@ -9,5 +9,6 @@
     "sec-log-pii",
     "sec-webview-javascript-enabled",
     "coroutine-dispatchers-hardcoded"
-  ]
+  ],
+  "_comment": "Band re-centred on 55 (was 70-90). Until detekt provisioning landed, detekt never actually ran in this fixture -- the tests t.Skip'd when no detekt was on PATH, and the gradlew path was broken -- so the old band described a native-rules-only scan of ~6 findings. With detekt running, bad-project now reports 28 findings, which is the point of a fixture named bad-project. Headroom is +-10 to absorb detekt rule churn."
 }

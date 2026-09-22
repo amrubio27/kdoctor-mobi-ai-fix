@@ -8,9 +8,9 @@
 //     parses the report, asserts schemaVersion, score band, and the
 //     mustIncludeFinding list.
 //
-// Tests SKIP (not FAIL) when prerequisites are missing (no detekt-cli,
-// no kdoctor binary buildable). This keeps `go test ./...` clean for
-// CI environments that haven't installed detekt yet.
+// These are the only tests that exercise a real scan end to end. They used
+// to skip when detekt was absent, which is why CI could stay green while the
+// scan path was broken. kdoctor provisions detekt itself now, so they run.
 package main
 
 import (
@@ -88,32 +88,15 @@ func repoRoot() (string, bool) {
 	return "", false
 }
 
-// detectDetektBinary returns the absolute path to a detekt-cli launcher.
-// Order: KDOCTOR_DETEKT_BIN env var → Windows-specific D:\tools\detekt.cmd
-// → POSIX /d/tools/detekt.cmd → /opt/detekt/bin/detekt → /usr/local/bin/detekt
-// → PATH lookup. Returns "" if not found (caller SKIPs the test).
+// detectDetektBinary honours an explicit KDOCTOR_DETEKT_BIN and nothing else.
+// It used to probe hardcoded paths from a contributor machine
+// (D:\tools\detekt.cmd), which meant it always returned "" for everyone
+// else and silently skipped the test.
 func detectDetektBinary() string {
 	if v := os.Getenv("KDOCTOR_DETEKT_BIN"); v != "" {
 		if _, err := os.Stat(v); err == nil {
 			return v
 		}
-	}
-	candidates := []string{}
-	if runtime.GOOS == "windows" {
-		candidates = append(candidates, `D:\tools\detekt.cmd`)
-	} else {
-		candidates = append(candidates, "/d/tools/detekt.cmd")
-	}
-	for _, c := range candidates {
-		if c == "" {
-			continue
-		}
-		if _, err := os.Stat(c); err == nil {
-			return c
-		}
-	}
-	if p, err := exec.LookPath("detekt"); err == nil {
-		return p
 	}
 	return ""
 }
@@ -156,10 +139,11 @@ func runFixture(t *testing.T, fixturePath string, useRelative bool) {
 	if kdoctorTestBin == "" {
 		t.Skip("kdoctor binary not available")
 	}
+	// kdoctor provisions detekt itself now, so these no longer skip when the
+	// machine has no detekt installed. That skip was why CI stayed green
+	// while the scan path was broken: the only tests that exercised it never
+	// ran. An explicit KDOCTOR_DETEKT_BIN still wins, for offline runners.
 	detektBin := detectDetektBinary()
-	if detektBin == "" {
-		t.Skip("detekt-cli not found; install or set KDOCTOR_DETEKT_BIN")
-	}
 	root, ok := repoRoot()
 	if !ok {
 		t.Skip("could not locate repo root")
@@ -190,8 +174,10 @@ func runFixture(t *testing.T, fixturePath string, useRelative bool) {
 		"scan", "--json",
 		"--type=kmp",
 		"--prefer-standalone",
-		"--detekt-bin=" + detektBin,
 		"--project-dir=" + projectPath,
+	}
+	if detektBin != "" {
+		args = append(args, "--detekt-bin="+detektBin)
 	}
 	cmd := exec.CommandContext(ctx, kdoctorTestBin, args...)
 	cmd.Dir = root

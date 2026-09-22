@@ -1,2 +1,0 @@
-# kdoctor AI Fixes
-
