@@ -57,6 +57,17 @@ jobs:
             go.sum
             **/go.mod
 
+      # The integration tests run a real scan, and detekt needs a JVM it can
+      # load. Pinning one here is what lets those tests be a hard failure
+      # rather than something that quietly skips: the runner default has
+      # changed before, and detekt 1.23 cannot load a feature release newer
+      # than 21.
+      - name: Set up Java for detekt
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       # The integration tests run a real scan now, and kdoctor fetches detekt
       # (~50 MB) plus the Compose rules plugin on first use. Cache them so only
       # the first run on a new pinned version pays for it.
@@ -94,6 +105,11 @@ jobs:
         # 120s was enough while the integration tests skipped themselves.
         # They run for real now (kdoctor provisions detekt on first use),
         # so a scan of the fixtures has to fit in the budget.
+        env:
+          # Turns "detekt could not run" from a skip into a failure. CI has a
+          # JVM and a network, so a degraded scan here is a real regression;
+          # a developer without a JDK gets an explained skip instead.
+          KDOCTOR_REQUIRE_DETEKT: '1'
         run: go test -race -count=1 -timeout=600s ./...
 
       # Build smoke test across every package, not just cmd/kdoctor:
