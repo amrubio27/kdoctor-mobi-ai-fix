@@ -10,12 +10,15 @@ package detektrunner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/amrubio27/kdoctor-mobi-ai-fix/internal/core/toolchain"
 )
 
 type ExecutionMode string
@@ -31,6 +34,13 @@ type Options struct {
 	UseStandalone  bool
 	StandalonePath string
 	Stdout         io.Writer // opcional, spinners del CLI
+	// JavaPath pins the JVM used to run a detekt .jar. Empty means "resolve
+	// one now". Never fall back to the bare name "java": the first JVM on
+	// PATH is often a feature release detekt cannot load.
+	JavaPath string
+	// NoDownload and Progress are forwarded to plugin provisioning.
+	NoDownload bool
+	Progress   io.Writer
 }
 
 func RunDetekt(ctx context.Context, opts Options) (string, error) {
@@ -62,10 +72,13 @@ var defaultExcludes = []string{
 }
 
 // probeDetektIsV2 checks whether the resolved detekt binary reports version 2.x.
-func probeDetektIsV2(ctx context.Context, bin string) bool {
+func probeDetektIsV2(ctx context.Context, bin, javaPath string) bool {
 	var cmd *exec.Cmd
 	if strings.HasSuffix(strings.ToLower(bin), ".jar") {
-		cmd = exec.CommandContext(ctx, "java", "-jar", bin, "--version")
+		if javaPath == "" {
+			return false
+		}
+		cmd = exec.CommandContext(ctx, javaPath, "-jar", bin, "--version")
 	} else {
 		cmd = exec.CommandContext(ctx, bin, "--version")
 	}
@@ -91,61 +104,185 @@ func runStandalone(ctx context.Context, opts Options) (string, error) {
 	// Crítico: limpia cualquier SARIF stale de runs previos.
 	_ = os.Remove(opts.SARIFOutput)
 
-	isV2 := probeDetektIsV2(ctx, bin)
+	// Resolve the JVM once, up front, so the probe below and the run itself
+	// agree on which java they are talking about.
+	javaPath := opts.JavaPath
+	// Resolve a JVM even for launcher scripts: we cannot pass -jar to them,
+	// but we can hand them a JAVA_HOME they will honour. Failure is only
+	// fatal for an actual .jar.
+	if javaPath == "" {
+		j, jerr := toolchain.ResolveJava()
+		if jerr != nil && needsJava(bin) {
+			return "", fmt.Errorf("detekt needs a Java runtime: %w", jerr)
+		}
+		if jerr == nil {
+			javaPath = j.Path
+		}
+	}
 
-	args := []string{
+	isV2 := probeDetektIsV2(ctx, bin, javaPath)
+
+	baseArgs := []string{
 		"--input", absProjectDir,
 		"--report", "sarif:" + opts.SARIFOutput,
 		"--excludes", excludesCSV,
+		// Without this, --config REPLACES detekt default ruleset instead of
+		// layering on top of it, so only the handful of rules named in the
+		// config file ever fire. That is why a scan with a minimal detekt.yml
+		// reported a single finding across a 16 KLOC project.
+		"--build-upon-default-config",
 	}
 	if !isV2 {
-		args = append(args, "--max-issues", fmt.Sprintf("%d", defaultMaxIssues))
+		baseArgs = append(baseArgs, "--max-issues", fmt.Sprintf("%d", defaultMaxIssues))
 	}
 
-	// Si el proyecto provee su propio detekt.yml (o detekt.yaml) en la raíz,
-	// lo pasamos con --config.
-	var configFound bool
-	for _, name := range []string{"detekt.yml", "detekt.yaml"} {
-		candidate := filepath.Join(absProjectDir, name)
-		if cfg, err := os.Stat(candidate); err == nil && !cfg.IsDir() {
-			args = append(args, "--config", candidate)
-			configFound = true
-			break
-		}
-	}
-	if !configFound {
-		autoConfig := filepath.Join(os.TempDir(), "kdoctor-auto-detekt.yml")
-		content := "naming:\n  active: true\n  FunctionNaming:\n    active: true\n    ignoreAnnotated:\n      - \"Composable\"\n"
-		if err := os.WriteFile(autoConfig, []byte(content), 0644); err == nil {
-			args = append(args, "--config", autoConfig)
-		}
+	// A project that already configures detekt should have its rules honoured,
+	// so its detekt.yml wins. config/detekt/ is the layout the Gradle plugin
+	// documents, so look there too.
+	// The Compose rules are the ones that differentiate kdoctor from plain
+	// detekt, so load the plugin that implements them. Losing it degrades
+	// coverage; it never fails the scan.
+	if plugins, perr := EnsureComposePlugins(ctx, ProvisionOptions{
+		NoDownload: opts.NoDownload,
+		Progress:   opts.Progress,
+	}); perr == nil && len(plugins) > 0 {
+		baseArgs = append(baseArgs, "--plugins", strings.Join(plugins, ","))
 	}
 
-	var cmd *exec.Cmd
-	if strings.HasSuffix(strings.ToLower(bin), ".jar") {
-		if _, err := exec.LookPath("java"); err != nil {
-			return "", fmt.Errorf("java runtime not found in PATH required to execute detekt jar: %s", bin)
+	projectConfig := findProjectDetektConfig(absProjectDir)
+	autoConfig := writeAutoConfig()
+
+	runOnce := func(configPath string) error {
+		args := append([]string{}, baseArgs...)
+		if configPath != "" {
+			args = append(args, "--config", configPath)
 		}
-		javaArgs := append([]string{"-jar", bin}, args...)
-		cmd = exec.CommandContext(ctx, "java", javaArgs...)
-	} else {
-		cmd = exec.CommandContext(ctx, bin, args...)
+		_ = os.Remove(opts.SARIFOutput)
+
+		var cmd *exec.Cmd
+		if needsJava(bin) {
+			if javaPath == "" {
+				return fmt.Errorf("%w: required to execute detekt jar %s", toolchain.ErrNoJava, bin)
+			}
+			cmd = exec.CommandContext(ctx, javaPath, append([]string{"-jar", bin}, args...)...)
+		} else {
+			cmd = exec.CommandContext(ctx, bin, args...)
+		}
+		cmd.Dir = absProjectDir
+		// A detekt launcher script picks its own JVM from JAVA_HOME/PATH. If we
+		// resolved a compatible one, force it on the child: otherwise the script
+		// starts under, say, Java 25 and dies inside the bundled IntelliJ
+		// platform with IllegalArgumentException: 25.0.1.
+		cmd.Env = envWithJavaHome(os.Environ(), javaPath)
+		out := opts.Stdout
+		if out == nil {
+			out = io.Discard
+		}
+		cmd.Stdout, cmd.Stderr = out, out
+		return cmd.Run()
 	}
-	cmd.Dir = absProjectDir
-	out := opts.Stdout
-	if out == nil {
-		out = io.Discard
-	}
-	cmd.Stdout, cmd.Stderr = out, out
-	if err := cmd.Run(); err != nil {
-		// Safety net: si detekt escribió un SARIF fresco pese a exit != 0
-		// (e.g. detekt retorna exit 2 cuando hay findings), aceptamos el SARIF.
+
+	err = runOnce(firstNonEmpty(projectConfig, autoConfig))
+	if err != nil {
+		// Safety net: detekt exits non-zero when it finds issues. If it still
+		// produced a SARIF report, those findings are exactly what we came for.
 		if stat, statErr := os.Stat(opts.SARIFOutput); statErr == nil && stat.Size() > 0 {
 			return opts.SARIFOutput, nil
+		}
+
+		// Exit code 3 means detekt rejected the config file, not the code. That
+		// is usually a stale detekt.yml (older kdoctor releases generated one
+		// naming style>UnusedImport, which detekt spells UnusedImports). Losing
+		// 33 rules over a typo in a generated file is a bad trade, so retry with
+		// our own config and let the caller report it.
+		if exitCode(err) == detektInvalidConfig && projectConfig != "" && autoConfig != "" {
+			if retryErr := runOnce(autoConfig); retryErr == nil {
+				return opts.SARIFOutput, ErrProjectConfigRejected{Path: projectConfig}
+			} else if stat, statErr := os.Stat(opts.SARIFOutput); statErr == nil && stat.Size() > 0 {
+				return opts.SARIFOutput, ErrProjectConfigRejected{Path: projectConfig}
+			}
 		}
 		return "", fmt.Errorf("detekt standalone: %w", err)
 	}
 	return opts.SARIFOutput, nil
+}
+
+// detektInvalidConfig is detekt CLI exit code for "invalid config property".
+const detektInvalidConfig = 3
+
+// ErrProjectConfigRejected reports that the scan succeeded, but only after
+// falling back from the project detekt config that detekt refused to load.
+// It is deliberately not fatal: the caller gets findings AND something
+// actionable to tell the user.
+type ErrProjectConfigRejected struct{ Path string }
+
+func (e ErrProjectConfigRejected) Error() string {
+	return fmt.Sprintf("%s was rejected by detekt (invalid properties); scanned with kdoctor defaults instead. "+
+		"Regenerate it with `kdoctor init --force`.", e.Path)
+}
+
+func exitCode(err error) int {
+	var ee *exec.ExitError
+	if errors.As(err, &ee) {
+		return ee.ExitCode()
+	}
+	return -1
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// findProjectDetektConfig returns the project detekt config, or "".
+func findProjectDetektConfig(projectDir string) string {
+	for _, rel := range []string{
+		"detekt.yml", "detekt.yaml",
+		filepath.Join("config", "detekt", "detekt.yml"),
+		filepath.Join("config", "detekt", "detekt.yaml"),
+	} {
+		p := filepath.Join(projectDir, rel)
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			return p
+		}
+	}
+	return ""
+}
+
+// writeAutoConfig drops kdoctor own minimal detekt config in the temp dir, so
+// a freshly cloned project needs no manual detekt setup. Returns "" on error.
+func writeAutoConfig() string {
+	path := filepath.Join(os.TempDir(), "kdoctor-auto-detekt.yml")
+	const content = `
+naming:
+  active: true
+  FunctionNaming:
+    active: true
+    # Compose functions are PascalCase by convention.
+    ignoreAnnotated:
+      - 'Composable'
+    # Kotlin test functions are conventionally written as backticked
+    # sentences. Flagging them produced hundreds of false positives
+    # that drowned out every real finding.
+    excludes:
+      - '**/test/**'
+      - '**/androidTest/**'
+      - '**/androidHostTest/**'
+      - '**/commonTest/**'
+      - '**/iosTest/**'
+      - '**/jvmTest/**'
+      - '**/*Test.kt'
+      - '**/*Tests.kt'
+      - '**/*Spec.kt'
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		return ""
+	}
+	return path
 }
 
 func runGradlew(ctx context.Context, opts Options) (string, error) {
@@ -196,4 +333,34 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, data, 0644)
+}
+
+// needsJava reports whether the resolved detekt binary is a .jar that must be
+// launched through a JVM. A native launcher script brings its own.
+func needsJava(bin string) bool {
+	return strings.HasSuffix(strings.ToLower(bin), ".jar")
+}
+
+// envWithJavaHome returns env with JAVA_HOME pointing at the JDK that owns
+// javaPath (.../bin/java -> ...), and that bin dir prepended to PATH. Returns
+// env untouched when javaPath is empty.
+func envWithJavaHome(env []string, javaPath string) []string {
+	if javaPath == "" {
+		return env
+	}
+	binDir := filepath.Dir(javaPath)
+	javaHome := filepath.Dir(binDir)
+	out := make([]string, 0, len(env)+1)
+	for _, kv := range env {
+		upper := strings.ToUpper(kv)
+		switch {
+		case strings.HasPrefix(upper, "JAVA_HOME="):
+			continue
+		case strings.HasPrefix(upper, "PATH="):
+			out = append(out, kv[:len("PATH=")]+binDir+string(os.PathListSeparator)+kv[len("PATH="):])
+		default:
+			out = append(out, kv)
+		}
+	}
+	return append(out, "JAVA_HOME="+javaHome)
 }

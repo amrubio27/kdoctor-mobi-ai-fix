@@ -12,6 +12,7 @@
 package pathutil
 
 import (
+	"net/url"
 	"path/filepath"
 	"strings"
 )
@@ -118,4 +119,59 @@ func isAbsoluteLike(s string) bool {
 
 func isLetter(b byte) bool {
 	return (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
+}
+
+// RelativeToProject renders a finding path the way a report should carry it:
+// relative to the project, with forward slashes.
+//
+// Findings arrive in two shapes. Native Go detectors emit project-relative
+// paths; detekt emits absolute file:// URIs. Leaving that mix in the report
+// meant the SARIF uploaded to GitHub Code Scanning carried URIs like
+// file:///C:/Users/<someone>/project/src/Foo.kt, which resolve to nothing in
+// the repository, and every JSON report leaked the scanning machine layout.
+//
+// Paths outside projectRoot are returned cleaned but still absolute: they are
+// genuinely outside the project, and silently rewriting them would be a lie.
+func RelativeToProject(input, projectRoot string) string {
+	if input == "" {
+		return ""
+	}
+
+	path := stripFileURI(input)
+	if projectRoot == "" {
+		return filepath.ToSlash(filepath.Clean(path))
+	}
+
+	abs := NormalizePath(path, projectRoot)
+	root := NormalizePath(projectRoot, "")
+
+	rel, err := filepath.Rel(root, abs)
+	if err != nil {
+		return abs
+	}
+	rel = filepath.ToSlash(rel)
+	// A result that climbs out of the project is not "relative to" it.
+	if rel == ".." || strings.HasPrefix(rel, "../") {
+		return abs
+	}
+	return rel
+}
+
+// stripFileURI turns a file:// URI into a plain path. detekt SARIF reports
+// use them; percent-encoding (e.g. %20 for spaces) has to be undone or the
+// path will not match anything on disk.
+func stripFileURI(input string) string {
+	const scheme = "file://"
+	if !strings.HasPrefix(input, scheme) {
+		return input
+	}
+	path := strings.TrimPrefix(input, scheme)
+	// file:///C:/x -> /C:/x ; drop the leading slash before a drive letter.
+	if len(path) > 2 && path[0] == '/' && isLetter(path[1]) && path[2] == ':' {
+		path = path[1:]
+	}
+	if unescaped, err := url.PathUnescape(path); err == nil {
+		path = unescaped
+	}
+	return path
 }
