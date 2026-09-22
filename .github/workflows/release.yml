@@ -18,24 +18,62 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          # Must match ci.yml. Releases used to build on 1.22 while CI validated
+          # on 1.23, so the published binaries were never the ones tested.
+          go-version: '1.23.x'
 
       - name: Cross-compile Binaries
         run: |
+          set -euo pipefail
           mkdir -p dist
-          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/kdoctor-windows-amd64.exe ./cmd/kdoctor
-          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o dist/kdoctor-darwin-amd64 ./cmd/kdoctor
-          GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o dist/kdoctor-darwin-arm64 ./cmd/kdoctor
-          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/kdoctor-linux-amd64 ./cmd/kdoctor
+
+          # Strip the leading v so `kdoctor --version` prints 1.2.3, not v1.2.3.
+          VERSION="${GITHUB_REF_NAME#v}"
+          LDFLAGS="-s -w -X main.version=${VERSION}"
+
+          # linux/arm64 was missing while install.sh already resolved
+          # kdoctor-linux-arm64, so every Linux ARM install hit a 404.
+          PLATFORMS="windows/amd64 darwin/amd64 darwin/arm64 linux/amd64 linux/arm64"
+
+          # kdoctor-mcp is documented in the README and SKILL.md but was never
+          # published, so nobody who used the one-liner installer had it.
+          for cmd in kdoctor kdoctor-mcp; do
+            for platform in $PLATFORMS; do
+              GOOS="${platform%/*}"
+              GOARCH="${platform#*/}"
+              out="dist/${cmd}-${GOOS}-${GOARCH}"
+              [ "$GOOS" = "windows" ] && out="${out}.exe"
+              echo "building $out"
+              GOOS="$GOOS" GOARCH="$GOARCH" go build -ldflags="$LDFLAGS" -o "$out" "./cmd/${cmd}"
+            done
+          done
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum * > sha256sums.txt
+          cat sha256sums.txt
+
+      - name: Verify the published binary reports the tagged version
+        run: |
+          set -euo pipefail
+          # Catches a silently dropped -X: a binary that still claims the old
+          # hardcoded version is worse than a failed release.
+          EXPECTED="${GITHUB_REF_NAME#v}"
+          ACTUAL="$(./dist/kdoctor-linux-amd64 --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+.*' || true)"
+          echo "expected=$EXPECTED actual=$ACTUAL"
+          case "$ACTUAL" in
+            "$EXPECTED"*) echo "version OK" ;;
+            *) echo "::error::binary reports '$ACTUAL' but the tag is '$EXPECTED'"; exit 1 ;;
+          esac
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/kdoctor-windows-amd64.exe
-            dist/kdoctor-darwin-amd64
-            dist/kdoctor-darwin-arm64
-            dist/kdoctor-linux-amd64
+            dist/kdoctor-*
+            dist/sha256sums.txt
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

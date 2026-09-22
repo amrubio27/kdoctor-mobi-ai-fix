@@ -80,11 +80,15 @@ jobs:
       # diff.go subprocess management.
 
       - name: go test (with -race)
-        run: go test -race -count=1 -timeout=120s ./...
+        # 120s was enough while the integration tests skipped themselves.
+        # They run for real now (kdoctor provisions detekt on first use),
+        # so a scan of the fixtures has to fit in the budget.
+        run: go test -race -count=1 -timeout=600s ./...
 
-      # Build smoke test. Confirms the binary compiles end-to-end.
-      - name: go build (cmd/kdoctor)
-        run: go build -o kdoctor ./cmd/kdoctor
+      # Build smoke test across every package, not just cmd/kdoctor:
+      # cmd/kdoctor-mcp was outside the gate and could break unnoticed.
+      - name: go build ./...
+        run: go build ./...
 
       # Dependency drift gate. Pinned versions produce zero diff.
       # If `go mod tidy` wants to add/remove requires, fail the gate so
